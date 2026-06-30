@@ -1,7 +1,6 @@
 .agents/
-.extracted/
-_ocr_images/
-_pdf_page/
+_pdf_pages/
+__pycache__/
 *.py
 *.jpg
 *.ps1
