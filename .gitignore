@@ -1,7 +1,7 @@
-./.agents/
-./.extracted/
-./_ocr_images/
-./_pdf_page/
+.agents/
+.extracted/
+_ocr_images/
+_pdf_page/
 *.py
 *.jpg
 *.ps1
