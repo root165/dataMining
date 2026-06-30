@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第2章节测试：数据挖掘的过程</title>
+  <style>
+    :root { --ink:#172033; --muted:#5f6f85; --line:#d8e2ee; --bg:#f6f8fb; --panel:#fff; --blue:#2563eb; --green:#166534; --red:#b91c1c; --amber:#92400e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+    header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+    .bar, main { max-width:980px; margin:0 auto; }
+    .bar { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 18px 42px; }
+    button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; }
+    button.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .score { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .score div, section { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+    .score div { padding:10px; text-align:center; }
+    .score strong { display:block; font-size:22px; }
+    section { padding:18px; margin-bottom:16px; }
+    .note { color:var(--muted); margin-top:0; }
+    .q { padding:15px 0; border-top:1px solid var(--line); }
+    .q:first-child { border-top:0; padding-top:0; }
+    .qt { font-weight:700; margin-bottom:8px; }
+    .tag { display:inline-block; margin-left:6px; color:#334155; background:#eef4ff; border:1px solid #dbeafe; border-radius:999px; padding:1px 8px; font-size:12px; font-weight:400; }
+    label { display:block; padding:6px 8px; border-radius:6px; }
+    label:hover { background:#eef4ff; }
+    input[type=text], textarea { width:100%; border:1px solid var(--line); border-radius:6px; padding:9px 10px; font:inherit; background:#fff; }
+    textarea { min-height:128px; resize:vertical; }
+    .fb { display:none; margin-top:10px; border-radius:6px; padding:10px 12px; font-size:14px; }
+    .ok { display:block; background:#ecfdf3; color:var(--green); }
+    .bad { display:block; background:#fef2f2; color:var(--red); }
+    .warn { display:block; background:#fff7ed; color:var(--amber); }
+    @media (max-width:700px) { .score { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>第2章节测试：数据挖掘的过程</h1>
+    <div>
+      <button class="primary" onclick="grade()">交卷纠错</button>
+      <button onclick="reveal()">显示解析</button>
+      <button onclick="resetAll()">清空</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="score">
+    <div><strong id="score">0</strong>客观题得分</div>
+    <div><strong id="right">0</strong>正确</div>
+    <div><strong id="wrong">0</strong>待改</div>
+  </div>
+  <section>
+    <p class="note">答题后会显示解析，并指出本题重点关注的知识点。简答题提供参考要点，请按要点自查。</p>
+    <div id="questions"></div>
+  </section>
+</main>
+<script>
+const questions = [{"type": "single", "q": "下列哪一项属于数据分析能力的挖掘阶段？", "options": ["常规报表", "即席查询", "警报", "预测型建模"], "answer": "D", "focus": "8个等级与两阶段", "explain": "挖掘阶段包括统计分析、预报、预测型建模、优化。"}, {"type": "single", "q": "OLAP中从城市汇总到省份，更接近哪种操作？", "options": ["钻取", "上卷", "离散化", "剪枝"], "answer": "B", "focus": "OLAP操作", "explain": "从低层细节概括到高层汇总是上卷。"}, {"type": "blank", "q": "SEMMA中的S表示____。", "answer": "Sample", "focus": "SEMMA模型", "explain": "SEMMA依次为Sample、Explore、Modify、Model、Assess。"}, {"type": "judge", "q": "CRISP-DM强调商业理解、数据理解、数据准备、建模、模型评估和结果发布等环节。", "answer": "对", "focus": "CRISP-DM", "explain": "图片OCR与教材第2章目录均列出这些步骤。"}, {"type": "short", "q": "说明数据挖掘三阶段过程模型及每个阶段的作用。", "answer": "要点：数据准备包括集成、选择、预处理、转换；数据挖掘阶段选用算法形成模型；解释评估阶段对模型和模式进行解释、评价。", "focus": "三阶段过程模型"}, {"type": "single", "q": "下列哪项属于描述阶段？", "options": ["预测型建模", "优化", "多维分析/OLAP", "预报"], "answer": "C", "focus": "两阶段", "explain": "描述阶段包括常规报表、即席查询、多维分析/OLAP、警报。"}, {"type": "single", "q": "“下个月各门店需求量会是多少”对应8等级中的哪一类？", "options": ["常规报表", "预报", "警报", "即席查询"], "answer": "B", "focus": "8个等级", "explain": "对未来趋势或需求量进行估计属于预报。"}, {"type": "single", "q": "“如何在约束条件下选择最佳方案”对应哪一等级？", "options": ["优化", "多维分析", "常规报表", "数据清洗"], "answer": "A", "focus": "优化", "explain": "优化回答“如何把事情做得更好，哪种决策最优”。"}, {"type": "single", "q": "CRISP-DM流程中首先强调的是？", "options": ["商业理解", "直接建模", "模型发布", "画图"], "answer": "A", "focus": "CRISP-DM", "explain": "CRISP-DM从商业理解开始，体现业务驱动。"}, {"type": "judge", "q": "数据准备阶段在数据挖掘项目中通常非常重要，并占据大量工作。", "answer": "对", "focus": "数据准备地位", "explain": "教材OCR第2章明确数据准备阶段非常重要，决定项目是否成功。"}, {"type": "judge", "q": "SEMMA模型不允许在结果不理想时回到前面步骤。", "answer": "错", "focus": "SEMMA反馈", "explain": "复习大纲提醒要理解SEMMA反馈机制，可回到抽样等环节。"}, {"type": "blank", "q": "数据挖掘三阶段过程模型包括数据准备、数据挖掘和____评估。", "answer": "解释", "focus": "三阶段模型", "explain": "教材目录和OCR列为数据准备、数据挖掘、解释评估。"}, {"type": "blank", "q": "数据分析能力8等级中，描述阶段的最后一级是____。", "answer": "警报", "focus": "8个等级", "explain": "前四级为常规报表、即席查询、多维分析、警报。"}, {"type": "short", "q": "按顺序写出SEMMA的五个步骤，并说明它为什么体现反馈式流程。", "answer": "Sample、Explore、Modify、Model、Assess。模型评估不理想时，可返回抽样、探索或调整环节重新处理。", "focus": "SEMMA模型"}, {"type": "single", "q": "“销售额低于目标时自动提醒负责人”属于哪一等级？", "options": ["警报", "优化", "预测型建模", "数据变换"], "answer": "A", "focus": "8个等级", "explain": "警报用于提示什么时候出了问题并及时告知。"}, {"type": "single", "q": "5A模型更强调什么？", "options": ["结果落地和工具功能", "只做抽样", "只做关联规则", "只处理缺失值"], "answer": "A", "focus": "5A模型", "explain": "图片OCR总结5A结果驱动，强调落地。"}, {"type": "judge", "q": "三阶段模型包括数据准备、数据挖掘、解释评估。", "answer": "对", "focus": "三阶段模型", "explain": "教材第2章OCR明确三阶段模型。"}, {"type": "blank", "q": "CRISP-DM最后一个环节是结果____。", "answer": "发布", "focus": "CRISP-DM", "explain": "CRISP-DM流程包括结果发布。"}, {"type": "blank", "q": "OLAP中从年到季度、月、日查看数据，属于向下____。", "answer": "钻取", "focus": "OLAP钻取", "explain": "从汇总层深入到细节层属于向下钻取。"}, {"type": "short", "q": "说明“描述阶段”和“挖掘阶段”分别回答哪类问题。", "answer": "描述阶段主要回答发生了什么、在哪里、何时需要反应；挖掘阶段进一步回答为什么、未来如何、接下来会发生什么以及如何优化决策。", "focus": "两阶段理解"}];
+function normalize(s) { return (s || "").toString().trim().replace(/\s+/g, "").toLowerCase(); }
+function optionLetter(i) { return String.fromCharCode(65 + i); }
+function render() {
+  const box = document.querySelector("#questions");
+  box.innerHTML = questions.map((q, i) => {
+    const idx = i + 1;
+    const tag = `<span class="tag">重点：${q.focus}</span>`;
+    if (q.type === "single") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div>${q.options.map((o,j)=>`<label><input type="radio" name="q${i}" value="${optionLetter(j)}"> ${optionLetter(j)}. ${o}</label>`).join("")}<div class="fb"></div></div>`;
+    }
+    if (q.type === "judge") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q}（ ） ${tag}</div><label><input type="radio" name="q${i}" value="对"> 对</label><label><input type="radio" name="q${i}" value="错"> 错</label><div class="fb"></div></div>`;
+    }
+    if (q.type === "blank") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><input type="text" name="q${i}"><div class="fb"></div></div>`;
+    }
+    return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><textarea name="q${i}" placeholder="在这里作答"></textarea><div class="fb warn">参考要点：${q.answer}<br>重点关注：${q.focus}</div></div>`;
+  }).join("");
+}
+function setFeedback(i, ok, text) {
+  const fb = document.querySelector(`[data-i="${i}"] .fb`);
+  fb.className = "fb " + (ok ? "ok" : "bad");
+  fb.innerHTML = text;
+}
+function grade() {
+  let score = 0, right = 0, wrong = 0;
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+      return;
+    }
+    let value = "";
+    if (q.type === "blank") value = document.querySelector(`[name="q${i}"]`).value;
+    else value = document.querySelector(`[name="q${i}"]:checked`)?.value || "";
+    const ok = normalize(value) === normalize(q.answer);
+    if (ok) { score += q.type === "judge" ? 1 : 2; right++; } else wrong++;
+    setFeedback(i, ok, `答案：${q.answer}。你的答案：${value || "未作答"}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+  });
+  document.querySelector("#score").textContent = score;
+  document.querySelector("#right").textContent = right;
+  document.querySelector("#wrong").textContent = wrong;
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+function reveal() {
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+    } else {
+      setFeedback(i, true, `答案：${q.answer}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+    }
+  });
+}
+function resetAll() { document.querySelectorAll("input, textarea").forEach(el => { if (el.type === "radio") el.checked = false; else el.value = ""; }); document.querySelectorAll(".fb").forEach(el => { el.className = "fb"; el.innerHTML = ""; }); document.querySelector("#score").textContent = "0"; document.querySelector("#right").textContent = "0"; document.querySelector("#wrong").textContent = "0"; }
+render();
+</script>
+</body>
+</html>

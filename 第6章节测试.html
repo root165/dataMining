@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第6章节测试：分类预测</title>
+  <style>
+    :root { --ink:#172033; --muted:#5f6f85; --line:#d8e2ee; --bg:#f6f8fb; --panel:#fff; --blue:#2563eb; --green:#166534; --red:#b91c1c; --amber:#92400e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+    header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+    .bar, main { max-width:980px; margin:0 auto; }
+    .bar { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 18px 42px; }
+    button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; }
+    button.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .score { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .score div, section { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+    .score div { padding:10px; text-align:center; }
+    .score strong { display:block; font-size:22px; }
+    section { padding:18px; margin-bottom:16px; }
+    .note { color:var(--muted); margin-top:0; }
+    .q { padding:15px 0; border-top:1px solid var(--line); }
+    .q:first-child { border-top:0; padding-top:0; }
+    .qt { font-weight:700; margin-bottom:8px; }
+    .tag { display:inline-block; margin-left:6px; color:#334155; background:#eef4ff; border:1px solid #dbeafe; border-radius:999px; padding:1px 8px; font-size:12px; font-weight:400; }
+    label { display:block; padding:6px 8px; border-radius:6px; }
+    label:hover { background:#eef4ff; }
+    input[type=text], textarea { width:100%; border:1px solid var(--line); border-radius:6px; padding:9px 10px; font:inherit; background:#fff; }
+    textarea { min-height:128px; resize:vertical; }
+    .fb { display:none; margin-top:10px; border-radius:6px; padding:10px 12px; font-size:14px; }
+    .ok { display:block; background:#ecfdf3; color:var(--green); }
+    .bad { display:block; background:#fef2f2; color:var(--red); }
+    .warn { display:block; background:#fff7ed; color:var(--amber); }
+    @media (max-width:700px) { .score { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>第6章节测试：分类预测</h1>
+    <div>
+      <button class="primary" onclick="grade()">交卷纠错</button>
+      <button onclick="reveal()">显示解析</button>
+      <button onclick="resetAll()">清空</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="score">
+    <div><strong id="score">0</strong>客观题得分</div>
+    <div><strong id="right">0</strong>正确</div>
+    <div><strong id="wrong">0</strong>待改</div>
+  </div>
+  <section>
+    <p class="note">答题后会显示解析，并指出本题重点关注的知识点。简答题提供参考要点，请按要点自查。</p>
+    <div id="questions"></div>
+  </section>
+</main>
+<script>
+const questions = [{"type": "single", "q": "决策树的叶节点通常存放什么？", "options": ["属性测试", "类标号", "支持度", "学习率"], "answer": "B", "focus": "决策树结构", "explain": "内部节点表示属性测试，叶节点存放类标号。"}, {"type": "single", "q": "信息增益偏向选择哪类属性？", "options": ["取值较少的属性", "取值较多的属性", "全是缺失值的属性", "与类别无关的属性"], "answer": "B", "focus": "信息增益局限", "explain": "属性取值越多，划分后子节点熵越容易降低，因此信息增益偏向分支多的属性。"}, {"type": "blank", "q": "朴素贝叶斯的核心简化假设是各特征条件____。", "answer": "独立", "focus": "朴素贝叶斯", "explain": "材料中称为条件独立假设，用于简化概率计算。"}, {"type": "judge", "q": "训练误差很低而测试误差很高，通常是过拟合表现。", "answer": "对", "focus": "过拟合", "explain": "图片OCR明确过拟合表现为训练误差很低但检验误差很高。"}, {"type": "short", "q": "说明决策树剪枝的目的，并比较预剪枝和后剪枝。", "answer": "目的：防止过拟合。预剪枝在树生长过程中提前停止，速度快但可能剪枝过早；后剪枝先让树完整生长再修剪不必要分支，效果较好但计算量大。", "focus": "决策树剪枝"}, {"type": "single", "q": "分类训练样本必须包含什么？", "options": ["属性值和类别标记", "只有商品编号", "只有无标签样本", "只有聚类中心"], "answer": "A", "focus": "分类过程", "explain": "分类训练样本用于建立模型，应包含属性值和类别标记。"}, {"type": "single", "q": "Gini指数用于决策树时，通常选择什么划分？", "options": ["Gini split最小", "支持度最大", "SSE最大", "学习率最大"], "answer": "A", "focus": "Gini指数", "explain": "图片OCR指出Gini选择Gini split最小。"}, {"type": "single", "q": "KNN被称为惰性学习，主要因为？", "options": ["训练阶段主要保存样本", "完全不使用样本", "必须先剪枝", "只计算置信度"], "answer": "A", "focus": "KNN", "explain": "期末大纲强调KNN训练阶段主要保存样本。"}, {"type": "single", "q": "SVM中核函数的主要作用是？", "options": ["处理非线性问题", "删除缺失值", "生成频繁项集", "计算IQR"], "answer": "A", "focus": "SVM核函数", "explain": "期末大纲列出核函数用于处理非线性问题。"}, {"type": "single", "q": "神经网络中损失函数的作用是？", "options": ["度量预测误差", "执行数据集成", "生成类别编码", "计算支持度"], "answer": "A", "focus": "神经网络", "explain": "大纲明确前向传播得到预测，损失函数度量误差。"}, {"type": "judge", "q": "后剪枝通常先让树完整生长，再修剪不必要分支。", "answer": "对", "focus": "后剪枝", "explain": "图片OCR明确后剪枝原理。"}, {"type": "judge", "q": "朴素贝叶斯在实践中一定最优，因为它理论上有最小错误率。", "answer": "错", "focus": "朴素贝叶斯局限", "explain": "图片OCR提醒由于特征独立性假设往往不成立，实践中不一定最优。"}, {"type": "blank", "q": "信息增益率通过惩罚____多的属性来改进信息增益偏向。", "answer": "分支", "focus": "信息增益率", "explain": "信息增益偏向取值/分支多的属性，增益率对此进行惩罚。"}, {"type": "blank", "q": "SVM在线性可分时寻找最大间隔____。", "answer": "超平面", "focus": "SVM", "explain": "期末大纲明确SVM寻找最大间隔超平面。"}, {"type": "short", "q": "说明分类建模的一般流程。", "answer": "选择训练数据集；选择测试数据集或交叉验证；由训练集建立分类模型；用测试集评估准确率/误差并修正；最后应用模型对未知样本分类。", "focus": "分类过程"}, {"type": "short", "q": "为什么KNN使用欧氏距离前常需要标准化？", "answer": "KNN依赖距离计算。如果不同特征量纲差异大，数值范围大的特征会主导欧氏距离，导致分类结果偏斜；标准化可减弱量纲影响。", "focus": "KNN量纲敏感"}, {"type": "single", "q": "逻辑回归虽然名字带回归，但复习大纲强调它主要用于？", "options": ["分类", "聚类", "关联规则", "数据联邦"], "answer": "A", "focus": "逻辑回归", "explain": "期末大纲明确逻辑回归主要用于分类并输出类别概率。"}, {"type": "judge", "q": "决策树对未知样本分类时，会沿根节点到叶节点的路径得到预测类别。", "answer": "对", "focus": "决策树分类机制", "explain": "图片OCR明确分类方式为跟踪根到叶路径，叶节点给出类别。"}, {"type": "blank", "q": "神经网络中反向传播用于计算____。", "answer": "梯度", "focus": "反向传播", "explain": "期末大纲明确反向传播计算梯度，优化器更新参数。"}, {"type": "short", "q": "简述朴素贝叶斯中先验概率、似然、后验概率的含义。", "answer": "先验概率是不看特征时某类出现概率；似然是某类中出现这些特征的概率；后验概率是看到特征后某类出现的概率。", "focus": "贝叶斯分类概念"}];
+function normalize(s) { return (s || "").toString().trim().replace(/\s+/g, "").toLowerCase(); }
+function optionLetter(i) { return String.fromCharCode(65 + i); }
+function render() {
+  const box = document.querySelector("#questions");
+  box.innerHTML = questions.map((q, i) => {
+    const idx = i + 1;
+    const tag = `<span class="tag">重点：${q.focus}</span>`;
+    if (q.type === "single") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div>${q.options.map((o,j)=>`<label><input type="radio" name="q${i}" value="${optionLetter(j)}"> ${optionLetter(j)}. ${o}</label>`).join("")}<div class="fb"></div></div>`;
+    }
+    if (q.type === "judge") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q}（ ） ${tag}</div><label><input type="radio" name="q${i}" value="对"> 对</label><label><input type="radio" name="q${i}" value="错"> 错</label><div class="fb"></div></div>`;
+    }
+    if (q.type === "blank") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><input type="text" name="q${i}"><div class="fb"></div></div>`;
+    }
+    return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><textarea name="q${i}" placeholder="在这里作答"></textarea><div class="fb warn">参考要点：${q.answer}<br>重点关注：${q.focus}</div></div>`;
+  }).join("");
+}
+function setFeedback(i, ok, text) {
+  const fb = document.querySelector(`[data-i="${i}"] .fb`);
+  fb.className = "fb " + (ok ? "ok" : "bad");
+  fb.innerHTML = text;
+}
+function grade() {
+  let score = 0, right = 0, wrong = 0;
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+      return;
+    }
+    let value = "";
+    if (q.type === "blank") value = document.querySelector(`[name="q${i}"]`).value;
+    else value = document.querySelector(`[name="q${i}"]:checked`)?.value || "";
+    const ok = normalize(value) === normalize(q.answer);
+    if (ok) { score += q.type === "judge" ? 1 : 2; right++; } else wrong++;
+    setFeedback(i, ok, `答案：${q.answer}。你的答案：${value || "未作答"}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+  });
+  document.querySelector("#score").textContent = score;
+  document.querySelector("#right").textContent = right;
+  document.querySelector("#wrong").textContent = wrong;
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+function reveal() {
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+    } else {
+      setFeedback(i, true, `答案：${q.answer}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+    }
+  });
+}
+function resetAll() { document.querySelectorAll("input, textarea").forEach(el => { if (el.type === "radio") el.checked = false; else el.value = ""; }); document.querySelectorAll(".fb").forEach(el => { el.className = "fb"; el.innerHTML = ""; }); document.querySelector("#score").textContent = "0"; document.querySelector("#right").textContent = "0"; document.querySelector("#wrong").textContent = "0"; }
+render();
+</script>
+</body>
+</html>

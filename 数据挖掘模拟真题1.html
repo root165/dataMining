@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数据挖掘真题练习</title>
+  <style>
+    :root {
+      --ink: #162033;
+      --muted: #65758b;
+      --line: #d8e2ee;
+      --bg: #f5f7fb;
+      --panel: #fff;
+      --blue: #2563eb;
+      --green: #166534;
+      --red: #b91c1c;
+      --amber: #a16207;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(255,255,255,.96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+    .bar, main { max-width: 1040px; margin: 0 auto; }
+    .bar {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 22px; }
+    main { padding: 18px 18px 42px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .summary div, section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .summary div { padding: 10px; text-align: center; }
+    .summary strong { display: block; font-size: 22px; }
+    section { padding: 18px; margin-bottom: 16px; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    .question { padding: 14px 0; border-top: 1px solid var(--line); }
+    .question:first-of-type { border-top: 0; padding-top: 0; }
+    .q-title { font-weight: 700; margin-bottom: 8px; }
+    .q-title small { color: var(--muted); font-weight: 400; }
+    label {
+      display: block;
+      padding: 6px 8px;
+      border-radius: 6px;
+    }
+    label:hover { background: #eef4ff; }
+    input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      font: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 132px; resize: vertical; }
+    .feedback {
+      display: none;
+      margin-top: 10px;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    .feedback strong { color: inherit; }
+    .ok { display: block; background: #ecfdf3; color: var(--green); }
+    .bad { display: block; background: #fef2f2; color: var(--red); }
+    .warn { display: block; background: #fff7ed; color: var(--amber); }
+    .explain {
+      margin-top: 7px;
+      color: #243044;
+    }
+    .explain ul { margin: 6px 0 0 18px; padding: 0; }
+    .note { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+    @media (max-width: 720px) {
+      .summary { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <h1>数据挖掘真题练习</h1>
+      <div class="actions">
+        <button class="primary" id="gradeBtn">交卷纠错</button>
+        <button id="revealBtn">显示解析</button>
+        <button id="resetBtn">清空作答</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="summary">
+      <div><strong id="score">0</strong>客观题得分</div>
+      <div><strong id="right">0</strong>正确</div>
+      <div><strong id="wrong">0</strong>待改</div>
+      <div><strong id="shortHit">0</strong>简答命中</div>
+    </div>
+    <p class="note">本页为纯文本练习版，不含原始截图。客观题会给出“为什么选这个、为什么不选其他项”；简答题按关键词和答题结构给出写作建议。</p>
+    <section>
+      <h2>一、单选题</h2>
+      <div id="single"></div>
+    </section>
+    <section>
+      <h2>二、填空题</h2>
+      <div id="blank"></div>
+    </section>
+    <section>
+      <h2>三、判断题</h2>
+      <div id="judge"></div>
+    </section>
+    <section>
+      <h2>四、简答题</h2>
+      <div id="short"></div>
+    </section>
+  </main>
+  <script>
+    const single = [
+      {
+        n: 1, score: 2, answer: "B",
+        text: "在关联规则分析中，支持度用于衡量（ ）。",
+        options: ["模型参数在训练过程中的更新速度", "项集在事务数据库中出现的频繁程度", "在已包含项集A的条件下，同时包含项集B的条件概率", "两个项集在数值空间中的距离大小"],
+        explain: {
+          why: "支持度 support 表示某个项集在全部事务中出现的比例或频数，核心是“有多频繁”。",
+          wrong: ["A是学习率或优化过程相关概念，不是关联规则指标。", "C描述的是置信度 confidence，即 P(B|A)。", "D是距离度量思想，常见于KNN、聚类等任务。"]
+        }
+      },
+      {
+        n: 2, score: 2, answer: "D",
+        text: "Bagging方法通过训练多个基学习器并综合其预测结果，通常有助于（ ）。",
+        options: ["显著增加基学习器之间的相关性", "使所有基学习器在同一训练集上独立训练", "保证每个基学习器都不会过拟合", "降低模型方差，提高预测稳定性"],
+        explain: {
+          why: "Bagging通过自助采样训练多个模型，再投票或平均，主要降低方差，让预测更稳定。",
+          wrong: ["A相反，Bagging希望基学习器差异更大、相关性更低。", "B错误，Bagging使用有放回采样得到的不同子训练集。", "C说法过绝对，单个基学习器仍可能过拟合。"]
+        }
+      },
+      {
+        n: 3, score: 2, answer: "A",
+        text: "对无序类别变量进行编码时，为避免引入类别大小关系，通常应采用（ ）。",
+        options: ["One-Hot编码", "整数编码", "目标编码", "频率编码"],
+        explain: {
+          why: "One-Hot编码把每个类别变成独立的0/1维度，不暗示类别之间有大小或顺序。",
+          wrong: ["B会把类别编码成1、2、3，容易让模型误以为存在大小关系。", "C利用目标统计量，可能引入泄漏，且不是避免顺序关系的常规首选。", "D用出现频率替代类别，也可能引入人为数值大小。"]
+        }
+      },
+      {
+        n: 4, score: 2, answer: "D",
+        text: "在分类任务中，交叉熵损失函数通常用于衡量（ ）。",
+        options: ["预测类别标签与真实类别之间的偏离程度", "不同类别样本在特征空间中的间隔大小", "模型参数更新前后的数值变化幅度", "预测类别概率与真实类别分布之间的差异"],
+        explain: {
+          why: "交叉熵关注真实类别分布与模型预测概率分布之间的差异，分类概率越接近真实标签，损失越小。",
+          wrong: ["A说的是标签层面的对错，缺少概率分布信息。", "B更像SVM间隔或度量学习问题。", "C是参数变化，不是损失函数要衡量的对象。"]
+        }
+      },
+      {
+        n: 5, score: 2, answer: "C",
+        text: "决策树算法在处理连续型特征时，通常会（ ）。",
+        options: ["将连续特征直接视为无序类别特征进行多分支划分", "先删除连续特征，再仅使用离散特征构建模型", "根据划分准则选择合适阈值，将样本分到不同分支", "要求连续特征满足正态分布后才能参与划分"],
+        explain: {
+          why: "决策树通常枚举或搜索候选切分点，用基尼指数、信息增益等准则选择最佳阈值。",
+          wrong: ["A会丢失连续变量的大小信息，且不是常规做法。", "B会浪费有效特征。", "D决策树不要求特征服从正态分布。"]
+        }
+      },
+      {
+        n: 6, score: 2, answer: "A",
+        text: "神经网络训练过程中，反向传播算法的主要作用是（ ）。",
+        options: ["计算损失函数关于网络参数的梯度", "将输出层误差直接平均分配给所有网络参数", "计算样本之间的相似度", "通过前一轮预测结果自动生成新的训练样本"],
+        explain: {
+          why: "反向传播利用链式法则从输出层向前计算各层参数梯度，供优化器更新参数。",
+          wrong: ["B不是平均分配误差，而是按链式法则逐层求导。", "C是距离或相似度计算，不是反向传播。", "D是伪标签或自训练一类思想，不是反向传播。"]
+        }
+      },
+      {
+        n: 7, score: 2, answer: "C",
+        text: "PCA（主成分分析）是属于数据预处理的哪种技术范畴（ ）。",
+        options: ["数据集成", "数据变换", "数据规约", "数据清洗"],
+        explain: {
+          why: "PCA常用于降维，通过保留主要方差信息减少特征维度，通常归入数据规约。",
+          wrong: ["A是合并多数据源。", "B有时广义上也可说是变换，但在数据挖掘教材分类中，PCA更典型地属于降维/数据规约。", "D是处理缺失、噪声、异常等质量问题。"]
+        }
+      },
+      {
+        n: 8, score: 2, answer: "D",
+        text: "K近邻算法在使用欧氏距离时，若不同特征量纲差异较大，通常需要先进行（ ）。",
+        options: ["根据类别标签重新调整特征取值", "将连续特征全部转换为类别特征", "增大K值以消除量纲差异的影响", "对特征进行归一化或标准化处理"],
+        explain: {
+          why: "KNN依赖距离，量纲大的特征会主导欧氏距离，因此要先归一化或标准化。",
+          wrong: ["A会引入标签信息，可能导致数据泄漏。", "B不是解决量纲差异的常规方法。", "C增大K不能消除量纲影响。"]
+        }
+      },
+      {
+        n: 9, score: 2, answer: "C",
+        text: "当希望同时兼顾准确率和召回率时，较常使用的综合评价指标是（ ）。",
+        options: ["准确率", "假阳性率", "F1值", "均方误差"],
+        explain: {
+          why: "F1值是精确率和召回率的调和平均，常用于二者需要平衡的分类场景。",
+          wrong: ["A只看整体预测正确比例，类别不平衡时可能误导。", "B只关注负类被误判为正类的比例。", "D主要用于回归误差。"]
+        }
+      },
+      {
+        n: 10, score: 2, answer: "C",
+        text: "随机森林在构建每棵树时，通常会（ ）。",
+        options: ["使用全部样本和全部特征", "只使用一个固定特征", "对样本和特征进行随机选择", "要求所有树结构完全相同"],
+        explain: {
+          why: "随机森林结合样本自助采样和特征随机选择，降低树之间相关性。",
+          wrong: ["A会让树更相似，削弱集成效果。", "B过于极端，无法充分建模。", "D随机森林恰恰希望各棵树有差异。"]
+        }
+      },
+      {
+        n: 11, score: 2, answer: "D",
+        text: "线性回归模型通常使用什么方法来估计参数（ ）。",
+        options: ["网格搜索", "最大似然估计", "梯度裁剪", "最小二乘法"],
+        explain: {
+          why: "普通线性回归常通过最小化残差平方和估计参数，即最小二乘法。",
+          wrong: ["A常用于超参数搜索。", "B在特定概率假设下可与最小二乘等价，但教材常规答案是最小二乘法。", "C用于缓解梯度爆炸，不是线性回归参数估计常规方法。"]
+        }
+      },
+      {
+        n: 12, score: 2, answer: "A",
+        text: "下列指标中，主要用于分类模型性能评估的是（ ）。",
+        options: ["召回率", "众数", "均值", "中位数"],
+        explain: {
+          why: "召回率衡量实际正类中被识别出来的比例，是分类评估常用指标。",
+          wrong: ["B、C、D都是统计描述量，不是分类模型性能指标。"]
+        }
+      },
+      {
+        n: 13, score: 2, answer: "A",
+        text: "神经网络训练时，学习率设置过大可能导致（ ）。",
+        options: ["参数更新步长过大，使损失函数难以稳定收敛", "参数更新步长过小，使模型训练速度明显变慢", "损失函数自动变为凸函数，保证全局最优", "网络参数始终保持初始值，无法参与训练"],
+        explain: {
+          why: "学习率过大会让参数更新跨过最优区域，损失震荡甚至发散。",
+          wrong: ["B是学习率过小的表现。", "C学习率不会改变损失函数的凸性。", "D只有学习率为0或参数被冻结才可能始终不变。"]
+        }
+      },
+      {
+        n: 14, score: 2, answer: "A",
+        text: "在线性可分情况下，支持向量机的核心思想是寻找（ ）。",
+        options: ["能够正确分类样本且分类间隔最大的超平面", "使支持向量数量最多且训练误差最小的超平面", "使所有样本尽可能远离其真实类别中心的超平面", "使训练样本到分类边界的平均距离最小的超平面"],
+        explain: {
+          why: "SVM的核心是最大间隔分类，寻找能正确分开样本且间隔最大的超平面。",
+          wrong: ["B不是追求支持向量数量最多。", "C关注类别中心，像原型或聚类思路。", "D与最大间隔相反。"]
+        }
+      },
+      {
+        n: 15, score: 2, answer: "C",
+        text: "岭回归中引入L2正则项，主要是为了（ ）。",
+        options: ["增大模型复杂度", "改变样本标签", "限制模型参数过大", "删除所有离群点"],
+        explain: {
+          why: "L2正则通过惩罚较大的权重系数来控制模型复杂度，缓解过拟合。",
+          wrong: ["A相反，正则化通常降低有效复杂度。", "B正则项不改变标签。", "D离群点处理属于数据清洗，不是岭回归正则项的作用。"]
+        }
+      },
+      {
+        n: 16, score: 2, answer: "C",
+        text: "神经网络隐藏层设计的主要作用通常是（ ）。",
+        options: ["自动选择最优的网络层数和神经元个数", "保证模型训练过程中不会出现过拟合", "自动挖掘原始数据中的非线性特征表示", "保证模型训练速度一定快于传统算法"],
+        explain: {
+          why: "隐藏层通过非线性激活和层级组合学习复杂特征表示。",
+          wrong: ["A网络结构通常需要人工设计或搜索。", "B隐藏层多反而可能过拟合。", "D训练速度不一定更快。"]
+        }
+      },
+      {
+        n: 17, score: 2, answer: "B",
+        text: "支持向量机中，支持向量通常指（ ）。",
+        options: ["远离分类边界、对模型没有影响的样本", "距离分类超平面最近并决定间隔的样本", "被模型误分类的全部样本", "训练集中类别标签缺失的样本"],
+        explain: {
+          why: "支持向量是靠近分类边界、决定最大间隔位置的关键样本。",
+          wrong: ["A远离边界的样本通常对超平面影响较小。", "C支持向量不等于所有误分类样本。", "D与标签缺失无关。"]
+        }
+      },
+      {
+        n: 18, score: 2, answer: "A",
+        text: "下列关于神经网络训练的说法，正确的是（ ）。",
+        options: ["训练目标通常是最小化损失函数", "学习率越大模型效果一定越好", "隐藏层越多一定不会过拟合", "训练过程不需要样本数据"],
+        explain: {
+          why: "神经网络训练一般通过优化算法不断调整参数，使损失函数尽可能小。",
+          wrong: ["B学习率过大会震荡或发散。", "C隐藏层更多可能增加过拟合风险。", "D训练必须依赖样本数据。"]
+        }
+      },
+      {
+        n: 19, score: 2, answer: "A",
+        text: "支持向量机在处理非线性分类问题时，常通过核函数实现的主要作用是（ ）。",
+        options: ["将问题转化到更适合分类的特征空间", "自动删除异常样本", "减少训练样本数量", "自动生成真实类别标签"],
+        explain: {
+          why: "核函数可隐式映射到高维特征空间，使原本非线性的问题更容易线性划分。",
+          wrong: ["B不是核函数的作用。", "C核函数不以减少样本数量为目标。", "D标签来自训练数据，不由核函数生成。"]
+        }
+      },
+      {
+        n: 20, score: 2, answer: "D",
+        text: "K近邻算法通常被称为惰性学习算法，主要是因为它（ ）。",
+        options: ["在预测阶段不需要计算样本之间的距离或相似度", "在训练阶段通过迭代优化得到一组固定的模型参数", "在建模前必须先假设特征与目标之间存在线性关系", "在训练阶段主要保存训练样本，预测时再根据邻近样本进行判断"],
+        explain: {
+          why: "KNN训练阶段几乎不建模，主要保存样本；真正的计算发生在预测阶段，所以称为惰性学习。",
+          wrong: ["A相反，预测时正要计算距离。", "B描述的是参数学习模型。", "C KNN不要求线性假设。"]
+        }
+      }
+    ];
+
+    const blanks = [
+      {n:1, answer:["基尼指数","gini"], text:"在决策树算法中，CART分类树常用的划分指标是____。", explain:"CART分类树常用基尼指数衡量节点不纯度，选择能让不纯度下降最多的划分。"},
+      {n:2, answer:["损失函数"], text:"在模型训练中，用于度量预测结果与真实结果差异的函数称为____。", explain:"损失函数把预测误差量化，优化器根据它调整模型参数。"},
+      {n:3, answer:["前向传播"], text:"在神经网络中，数据从输入层经过隐藏层到输出层计算预测结果的过程称为____。", explain:"从输入到输出计算预测值叫前向传播；由损失反推梯度叫反向传播。"},
+      {n:4, answer:["频繁项集"], text:"在关联规则分析中，满足最小支持度要求的项集称为____。", explain:"支持度达到阈值说明该项集出现足够频繁，因此称为频繁项集。"},
+      {n:5, answer:["数据集成"], text:"在数据预处理中，将来自不同数据源的数据合并到统一数据存储中的过程称为____。", explain:"数据集成处理多来源数据的合并、冲突消解和统一表示。"},
+      {n:6, answer:["假负例","fn"], text:"在二分类任务中，实际为正例但被模型预测为负例的样本称为____。", explain:"实际为正却判成负，记为False Negative，中文常说假负例。"},
+      {n:7, answer:["自助采样","bootstrap采样","bootstrap"], text:"在集成学习中，通过对训练集进行有放回抽样构造多个子训练集的方法称为____。", explain:"Bagging中的训练子集通常由Bootstrap有放回抽样得到。"},
+      {n:8, answer:["最小二乘法"], text:"在线性回归中，用于估计模型参数的常见方法是____。", explain:"最小二乘法通过最小化残差平方和求解线性回归参数。"},
+      {n:9, answer:["随机梯度下降","sgd"], text:"在神经网络训练中，根据梯度方向逐步调整参数的优化方法称为____。", explain:"随机梯度下降使用样本或小批量样本估计梯度，并沿降低损失的方向更新参数。"},
+      {n:10, answer:["投票法","多数投票"], text:"在集成学习中，多个模型对同一样本进行类别投票并确定最终结果的方法称为____。", explain:"分类集成常用投票法，回归集成常用平均法。"}
+    ];
+
+    const judges = [
+      {n:1, answer:"错", text:"逻辑回归通常用于回归任务。", explain:"虽然名字带“回归”，逻辑回归主要用于分类，尤其是二分类。"},
+      {n:2, answer:"对", text:"聚类算法通常不依赖事先给定的类别标签，而是根据样本之间的相似性自动划分数据对象。", explain:"聚类是典型无监督学习，根据相似性或距离形成簇。"},
+      {n:3, answer:"对", text:"回归和分类都需要利用已知标签的数据进行模型训练，因此二者都属于有监督学习。", explain:"二者目标变量形式不同：回归预测连续值，分类预测类别。"},
+      {n:4, answer:"错", text:"频繁项集一定都要满足强关联规则。", explain:"频繁项集只要求支持度高；强关联规则还要满足置信度等规则评价条件。"},
+      {n:5, answer:"错", text:"Z-score标准化会把所有特征值缩放到[0,1]区间内。", explain:"Z-score把数据变为均值0、标准差1；缩放到[0,1]是Min-Max归一化。"},
+      {n:6, answer:"对", text:"数据预处理的主要目的之一是提高数据质量，从而提升后续模型训练和分析的效果。", explain:"清洗、集成、变换、规约都服务于提高数据可用性和建模效果。"},
+      {n:7, answer:"错", text:"训练集准确率很高而测试集准确率较低，通常说明模型可能存在欠拟合问题。", explain:"这通常是过拟合：模型记住训练集，却泛化不好。欠拟合是训练集和测试集表现都差。"},
+      {n:8, answer:"对", text:"皮尔逊相关系数只能衡量变量间的线性相关性。", explain:"皮尔逊相关反映线性关系强弱，非线性相关可能无法被它充分体现。"},
+      {n:9, answer:"对", text:"K-means聚类结果可能受初始聚类中心影响。", explain:"不同初始中心可能收敛到不同局部最优，因此常多次初始化。"},
+      {n:10, answer:"对", text:"在分类任务中，召回率越高，说明模型将正类样本识别出来的能力越强。", explain:"召回率 = TP / (TP + FN)，衡量实际正类被找回的比例。"}
+    ];
+
+    const shorts = [
+      {
+        n: 1,
+        text: "简述K-means聚类算法的基本思想及主要步骤，并说明该算法的优点和局限性。",
+        keywords: ["k-means","聚类","中心","距离","分配","更新","迭代","收敛","优点","局限"],
+        guide: "可按“思想-步骤-优点-局限”写：先给定K个簇中心，按距离把样本分到最近簇，再用簇内均值更新中心，重复直到中心或目标函数收敛。优点是简单、效率较高、适合球状簇；局限是需预先指定K、对初始中心和异常值敏感，不适合非凸形状或不同密度簇。"
+      },
+      {
+        n: 2,
+        text: "什么是数据挖掘？使用数据挖掘发现知识的过程是什么样的，包括哪些重要的步骤？",
+        keywords: ["数据挖掘","大量数据","模式","知识","数据选择","预处理","变换","建模","评价","解释"],
+        guide: "可先定义：从大量、不完全、含噪、随机的数据中发现潜在有价值模式和知识的过程。步骤可写：明确问题、数据选择、数据预处理、数据变换、挖掘建模、模式评价、知识表示与应用。"
+      },
+      {
+        n: 3,
+        text: "数据预处理是数据准备的主要工作。请思考和阐述数据预处理在数据挖掘中所处的地位和所发挥的作用。",
+        keywords: ["数据预处理","数据准备","数据质量","清洗","集成","变换","规约","缺失值","异常值","模型效果","挖掘基础"],
+        guide: "可强调地位：数据预处理处在原始数据与建模挖掘之间，是数据挖掘成功的基础和前提。作用包括：清洗缺失、噪声、异常和重复数据；集成多源数据；通过标准化、编码、离散化等变换让数据适合算法；通过降维、抽样、特征选择等规约降低复杂度；最终提高数据质量、模型稳定性、准确性和可解释性。"
+      }
+    ];
+
+    function normalize(s) {
+      return (s || "").toString().trim().replace(/\s+/g, "").toLowerCase();
+    }
+    function choiceQuestion(q) {
+      const opts = q.options.map((opt, i) => {
+        const value = String.fromCharCode(65 + i);
+        return `<label><input type="radio" name="single-${q.n}" value="${value}"> ${value}. ${opt}</label>`;
+      }).join("");
+      return `<div class="question" data-type="single" data-n="${q.n}">
+        <div class="q-title">${q.n}. ${q.text} <small>(${q.score}分)</small></div>
+        ${opts}
+        <div class="feedback"></div>
+      </div>`;
+    }
+    function blankQuestion(q) {
+      return `<div class="question" data-type="blank" data-n="${q.n}">
+        <div class="q-title">${q.n}. ${q.text} <small>(2分)</small></div>
+        <input type="text" name="blank-${q.n}" autocomplete="off">
+        <div class="feedback"></div>
+      </div>`;
+    }
+    function judgeQuestion(q) {
+      return `<div class="question" data-type="judge" data-n="${q.n}">
+        <div class="q-title">${q.n}. ${q.text} <small>(1分)</small></div>
+        <label><input type="radio" name="judge-${q.n}" value="对"> 对</label>
+        <label><input type="radio" name="judge-${q.n}" value="错"> 错</label>
+        <div class="feedback"></div>
+      </div>`;
+    }
+    function shortQuestion(q) {
+      return `<div class="question" data-type="short" data-n="${q.n}">
+        <div class="q-title">${q.n}. ${q.text} <small>(10分)</small></div>
+        <textarea name="short-${q.n}" placeholder="在这里作答"></textarea>
+        <div class="feedback"></div>
+      </div>`;
+    }
+    function setFeedback(el, cls, html) {
+      const box = el.querySelector(".feedback");
+      box.className = `feedback ${cls}`;
+      box.innerHTML = html;
+    }
+    function optionExplain(q) {
+      return `<div class="explain"><strong>为什么选 ${q.answer}：</strong>${q.explain.why}
+        <ul>${q.explain.wrong.map(item => `<li>${item}</li>`).join("")}</ul>
+      </div>`;
+    }
+    function grade(revealOnly = false) {
+      let score = 0, right = 0, wrong = 0, shortHitTotal = 0;
+      single.forEach(q => {
+        const el = document.querySelector(`[data-type="single"][data-n="${q.n}"]`);
+        const picked = document.querySelector(`input[name="single-${q.n}"]:checked`)?.value || "";
+        const ok = picked === q.answer;
+        if (ok) { score += q.score; right++; }
+        else { wrong++; }
+        setFeedback(
+          el,
+          ok ? "ok" : "bad",
+          `<strong>${ok ? "正确" : (revealOnly ? "参考解析" : "错误")}。</strong>正确答案：${q.answer}。你选择：${picked || "未作答"}。${optionExplain(q)}`
+        );
+      });
+      blanks.forEach(q => {
+        const el = document.querySelector(`[data-type="blank"][data-n="${q.n}"]`);
+        const value = normalize(document.querySelector(`input[name="blank-${q.n}"]`)?.value);
+        const ok = q.answer.some(a => normalize(a) === value);
+        if (ok) { score += 2; right++; }
+        else { wrong++; }
+        setFeedback(
+          el,
+          ok ? "ok" : "bad",
+          `<strong>${ok ? "正确" : (revealOnly ? "参考解析" : "待修正")}。</strong>参考答案：${q.answer.join(" / ")}。<div class="explain">${q.explain}</div>`
+        );
+      });
+      judges.forEach(q => {
+        const el = document.querySelector(`[data-type="judge"][data-n="${q.n}"]`);
+        const picked = document.querySelector(`input[name="judge-${q.n}"]:checked`)?.value || "";
+        const ok = picked === q.answer;
+        if (ok) { score += 1; right++; }
+        else { wrong++; }
+        setFeedback(
+          el,
+          ok ? "ok" : "bad",
+          `<strong>${ok ? "正确" : (revealOnly ? "参考解析" : "错误")}。</strong>正确判断：${q.answer}。你选择：${picked || "未作答"}。<div class="explain">${q.explain}</div>`
+        );
+      });
+      shorts.forEach(q => {
+        const el = document.querySelector(`[data-type="short"][data-n="${q.n}"]`);
+        const value = normalize(document.querySelector(`textarea[name="short-${q.n}"]`)?.value);
+        const hits = q.keywords.filter(k => value.includes(normalize(k)));
+        shortHitTotal += hits.length;
+        const cls = hits.length >= Math.ceil(q.keywords.length * 0.45) ? "ok" : "warn";
+        if (cls === "ok") right++; else wrong++;
+        setFeedback(
+          el,
+          cls,
+          `<strong>简答题写作反馈。</strong>关键词命中：${hits.length}/${q.keywords.length}。已命中：${hits.length ? hits.join("、") : "暂无"}。<div class="explain"><strong>应该怎么写：</strong>${q.guide}</div>`
+        );
+      });
+      document.querySelector("#score").textContent = score;
+      document.querySelector("#right").textContent = right;
+      document.querySelector("#wrong").textContent = wrong;
+      document.querySelector("#shortHit").textContent = shortHitTotal;
+      window.scrollTo({top: 0, behavior: "smooth"});
+    }
+
+    document.querySelector("#single").innerHTML = single.map(choiceQuestion).join("");
+    document.querySelector("#blank").innerHTML = blanks.map(blankQuestion).join("");
+    document.querySelector("#judge").innerHTML = judges.map(judgeQuestion).join("");
+    document.querySelector("#short").innerHTML = shorts.map(shortQuestion).join("");
+    document.querySelector("#gradeBtn").addEventListener("click", () => grade(false));
+    document.querySelector("#revealBtn").addEventListener("click", () => grade(true));
+    document.querySelector("#resetBtn").addEventListener("click", () => {
+      document.querySelectorAll("input, textarea").forEach(el => {
+        if (el.type === "radio") el.checked = false;
+        else el.value = "";
+      });
+      document.querySelectorAll(".feedback").forEach(el => { el.className = "feedback"; el.textContent = ""; });
+      document.querySelector("#score").textContent = "0";
+      document.querySelector("#right").textContent = "0";
+      document.querySelector("#wrong").textContent = "0";
+      document.querySelector("#shortHit").textContent = "0";
+    });
+  </script>
+</body>
+</html>

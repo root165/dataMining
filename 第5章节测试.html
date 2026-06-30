@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第5章节测试：关联分析</title>
+  <style>
+    :root { --ink:#172033; --muted:#5f6f85; --line:#d8e2ee; --bg:#f6f8fb; --panel:#fff; --blue:#2563eb; --green:#166534; --red:#b91c1c; --amber:#92400e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+    header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+    .bar, main { max-width:980px; margin:0 auto; }
+    .bar { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 18px 42px; }
+    button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; }
+    button.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .score { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .score div, section { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+    .score div { padding:10px; text-align:center; }
+    .score strong { display:block; font-size:22px; }
+    section { padding:18px; margin-bottom:16px; }
+    .note { color:var(--muted); margin-top:0; }
+    .q { padding:15px 0; border-top:1px solid var(--line); }
+    .q:first-child { border-top:0; padding-top:0; }
+    .qt { font-weight:700; margin-bottom:8px; }
+    .tag { display:inline-block; margin-left:6px; color:#334155; background:#eef4ff; border:1px solid #dbeafe; border-radius:999px; padding:1px 8px; font-size:12px; font-weight:400; }
+    label { display:block; padding:6px 8px; border-radius:6px; }
+    label:hover { background:#eef4ff; }
+    input[type=text], textarea { width:100%; border:1px solid var(--line); border-radius:6px; padding:9px 10px; font:inherit; background:#fff; }
+    textarea { min-height:128px; resize:vertical; }
+    .fb { display:none; margin-top:10px; border-radius:6px; padding:10px 12px; font-size:14px; }
+    .ok { display:block; background:#ecfdf3; color:var(--green); }
+    .bad { display:block; background:#fef2f2; color:var(--red); }
+    .warn { display:block; background:#fff7ed; color:var(--amber); }
+    @media (max-width:700px) { .score { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>第5章节测试：关联分析</h1>
+    <div>
+      <button class="primary" onclick="grade()">交卷纠错</button>
+      <button onclick="reveal()">显示解析</button>
+      <button onclick="resetAll()">清空</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="score">
+    <div><strong id="score">0</strong>客观题得分</div>
+    <div><strong id="right">0</strong>正确</div>
+    <div><strong id="wrong">0</strong>待改</div>
+  </div>
+  <section>
+    <p class="note">答题后会显示解析，并指出本题重点关注的知识点。简答题提供参考要点，请按要点自查。</p>
+    <div id="questions"></div>
+  </section>
+</main>
+<script>
+const questions = [{"type": "single", "q": "规则X=>Y的置信度表示什么？", "options": ["X和Y同时出现占全部事务的比例", "包含X的事务中也包含Y的比例", "Y出现占全部事务的比例", "X与Y的距离"], "answer": "B", "focus": "置信度", "explain": "置信度是条件概率P(Y|X)。"}, {"type": "single", "q": "FP-Growth相对Apriori的核心优化是？", "options": ["完全不需要数据", "用FP树压缩数据库并避免大量候选项集", "只计算均值", "只能处理两个商品"], "answer": "B", "focus": "FP-Growth", "explain": "材料强调FP-Growth扫描两次、构建FP树、不产生候选项集。"}, {"type": "blank", "q": "提升度大于1表示前件和后件之间存在____相关。", "answer": "正", "focus": "提升度判定", "explain": "复习大纲明确>1正相关，=1独立，<1负相关。"}, {"type": "judge", "q": "Apriori剪枝依据是非频繁项集的超集一定非频繁。", "answer": "对", "focus": "Apriori原理", "explain": "这是Apriori利用频繁项集性质剪枝的基础。"}, {"type": "short", "q": "10笔交易中，4笔同时买油条和豆浆，5笔买油条。计算{油条}=>{豆浆}的支持度和置信度。", "answer": "支持度=4/10=40%；置信度=4/5=80%。重点说明支持度看全局，置信度看已买油条的人群。", "focus": "支持度与置信度计算"}, {"type": "single", "q": "强关联规则至少需要满足什么？", "options": ["最小支持度和最小置信度", "最大SSE", "最小学习率", "最大欧氏距离"], "answer": "A", "focus": "强关联规则", "explain": "强关联规则需要满足minsup和minconf。"}, {"type": "single", "q": "候选项集是指什么？", "options": ["未经支持度检验的项集", "一定频繁的项集", "最终分类标签", "噪声点集合"], "answer": "A", "focus": "候选项集", "explain": "图片OCR概念体系中候选项集为未经支持度检验的项集。"}, {"type": "single", "q": "Apriori算法的主要瓶颈不包括哪项？", "options": ["产生大量候选集", "多次扫描数据库", "计算开销大", "完全不需要候选集"], "answer": "D", "focus": "Apriori瓶颈", "explain": "完全不产生候选集是FP-Growth的优化特点，不是Apriori瓶颈。"}, {"type": "single", "q": "若lift=1，通常表示规则前件和后件？", "options": ["正相关", "负相关", "相互独立", "一定互斥"], "answer": "C", "focus": "提升度判定", "explain": "材料明确lift=1表示独立。"}, {"type": "judge", "q": "支持度衡量规则适用于整个数据集的程度。", "answer": "对", "focus": "支持度", "explain": "图片OCR说明支持度确定规则在多大程度上适用于整个数据集。"}, {"type": "judge", "q": "如果后件商品本身非常热门，高置信度规则可能有误导性。", "answer": "对", "focus": "置信度局限", "explain": "图片OCR用大米例子说明高置信度可能来自后件本身热门。"}, {"type": "blank", "q": "关联规则挖掘通常先产生频繁项集，再生成____。", "answer": "规则", "focus": "两阶段框架", "explain": "两阶段为频繁项集生成和规则生成。"}, {"type": "blank", "q": "FP-Growth用____树压缩事务数据库。", "answer": "FP", "focus": "FP-Growth", "explain": "FP-Growth核心数据结构是FP树。"}, {"type": "short", "q": "为什么仅看支持度和置信度可能不够？提升度解决什么问题？", "answer": "置信度会忽略后件本身支持度，后件很热门时可能产生伪高置信度规则。提升度衡量前件与后件的相关性，>1正相关，=1独立，<1负相关。", "focus": "规则评估局限"}, {"type": "short", "q": "比较Apriori和FP-Growth的核心差异。", "answer": "Apriori基于候选项集产生和剪枝，广度搜索，可能多次扫描数据库并产生大量候选集；FP-Growth构建FP树压缩数据，不产生候选项集，通过条件树递归挖掘，通常效率更高。", "focus": "算法对比"}, {"type": "single", "q": "项集{牛奶,面包,尿布}是几项集？", "options": ["1项集", "2项集", "3项集", "4项集"], "answer": "C", "focus": "k-项集", "explain": "包含3个项的项集称为3-项集。"}, {"type": "single", "q": "序列关联关系强调什么？", "options": ["时间先后顺序", "均值为0", "类别标签", "簇中心"], "answer": "A", "focus": "关联关系类型", "explain": "图片OCR说明序列关联关系是事物在时间上按一定先后顺序发生。"}, {"type": "judge", "q": "FP树构建通常需要先扫描一次数据确定项的支持度计数。", "answer": "对", "focus": "FP树构建", "explain": "图片OCR列出先扫描数据集一次确定每个项支持度计数。"}, {"type": "blank", "q": "规则X=>Y要求X∩Y=____。", "answer": "空", "focus": "关联规则形式", "explain": "图片OCR概念体系中规则X=>Y要求交集为空。"}, {"type": "short", "q": "解释“支持度看全局、置信度看局部”的含义。", "answer": "支持度以全部事务数为分母，衡量X和Y共同出现占全体比例；置信度以包含X的事务为分母，衡量已出现X时Y也出现的条件概率。", "focus": "支持度与置信度辨析"}];
+function normalize(s) { return (s || "").toString().trim().replace(/\s+/g, "").toLowerCase(); }
+function optionLetter(i) { return String.fromCharCode(65 + i); }
+function render() {
+  const box = document.querySelector("#questions");
+  box.innerHTML = questions.map((q, i) => {
+    const idx = i + 1;
+    const tag = `<span class="tag">重点：${q.focus}</span>`;
+    if (q.type === "single") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div>${q.options.map((o,j)=>`<label><input type="radio" name="q${i}" value="${optionLetter(j)}"> ${optionLetter(j)}. ${o}</label>`).join("")}<div class="fb"></div></div>`;
+    }
+    if (q.type === "judge") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q}（ ） ${tag}</div><label><input type="radio" name="q${i}" value="对"> 对</label><label><input type="radio" name="q${i}" value="错"> 错</label><div class="fb"></div></div>`;
+    }
+    if (q.type === "blank") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><input type="text" name="q${i}"><div class="fb"></div></div>`;
+    }
+    return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><textarea name="q${i}" placeholder="在这里作答"></textarea><div class="fb warn">参考要点：${q.answer}<br>重点关注：${q.focus}</div></div>`;
+  }).join("");
+}
+function setFeedback(i, ok, text) {
+  const fb = document.querySelector(`[data-i="${i}"] .fb`);
+  fb.className = "fb " + (ok ? "ok" : "bad");
+  fb.innerHTML = text;
+}
+function grade() {
+  let score = 0, right = 0, wrong = 0;
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+      return;
+    }
+    let value = "";
+    if (q.type === "blank") value = document.querySelector(`[name="q${i}"]`).value;
+    else value = document.querySelector(`[name="q${i}"]:checked`)?.value || "";
+    const ok = normalize(value) === normalize(q.answer);
+    if (ok) { score += q.type === "judge" ? 1 : 2; right++; } else wrong++;
+    setFeedback(i, ok, `答案：${q.answer}。你的答案：${value || "未作答"}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+  });
+  document.querySelector("#score").textContent = score;
+  document.querySelector("#right").textContent = right;
+  document.querySelector("#wrong").textContent = wrong;
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+function reveal() {
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+    } else {
+      setFeedback(i, true, `答案：${q.answer}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+    }
+  });
+}
+function resetAll() { document.querySelectorAll("input, textarea").forEach(el => { if (el.type === "radio") el.checked = false; else el.value = ""; }); document.querySelectorAll(".fb").forEach(el => { el.className = "fb"; el.innerHTML = ""; }); document.querySelector("#score").textContent = "0"; document.querySelector("#right").textContent = "0"; document.querySelector("#wrong").textContent = "0"; }
+render();
+</script>
+</body>
+</html>

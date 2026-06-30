@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第1章节测试：绪论：数据分析与数据挖掘</title>
+  <style>
+    :root { --ink:#172033; --muted:#5f6f85; --line:#d8e2ee; --bg:#f6f8fb; --panel:#fff; --blue:#2563eb; --green:#166534; --red:#b91c1c; --amber:#92400e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+    header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+    .bar, main { max-width:980px; margin:0 auto; }
+    .bar { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 18px 42px; }
+    button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; }
+    button.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .score { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .score div, section { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+    .score div { padding:10px; text-align:center; }
+    .score strong { display:block; font-size:22px; }
+    section { padding:18px; margin-bottom:16px; }
+    .note { color:var(--muted); margin-top:0; }
+    .q { padding:15px 0; border-top:1px solid var(--line); }
+    .q:first-child { border-top:0; padding-top:0; }
+    .qt { font-weight:700; margin-bottom:8px; }
+    .tag { display:inline-block; margin-left:6px; color:#334155; background:#eef4ff; border:1px solid #dbeafe; border-radius:999px; padding:1px 8px; font-size:12px; font-weight:400; }
+    label { display:block; padding:6px 8px; border-radius:6px; }
+    label:hover { background:#eef4ff; }
+    input[type=text], textarea { width:100%; border:1px solid var(--line); border-radius:6px; padding:9px 10px; font:inherit; background:#fff; }
+    textarea { min-height:128px; resize:vertical; }
+    .fb { display:none; margin-top:10px; border-radius:6px; padding:10px 12px; font-size:14px; }
+    .ok { display:block; background:#ecfdf3; color:var(--green); }
+    .bad { display:block; background:#fef2f2; color:var(--red); }
+    .warn { display:block; background:#fff7ed; color:var(--amber); }
+    @media (max-width:700px) { .score { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>第1章节测试：绪论：数据分析与数据挖掘</h1>
+    <div>
+      <button class="primary" onclick="grade()">交卷纠错</button>
+      <button onclick="reveal()">显示解析</button>
+      <button onclick="resetAll()">清空</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="score">
+    <div><strong id="score">0</strong>客观题得分</div>
+    <div><strong id="right">0</strong>正确</div>
+    <div><strong id="wrong">0</strong>待改</div>
+  </div>
+  <section>
+    <p class="note">答题后会显示解析，并指出本题重点关注的知识点。简答题提供参考要点，请按要点自查。</p>
+    <div id="questions"></div>
+  </section>
+</main>
+<script>
+const questions = [{"type": "single", "q": "数据挖掘相比传统数据分析，更强调什么？", "options": ["人工汇总已知指标", "从大量复杂数据中自动发现潜在规律", "只制作固定报表", "只做数据库查询"], "answer": "B", "focus": "数据挖掘定义", "explain": "复习大纲强调数据挖掘从大量复杂数据中自动发现隐藏、未知、潜在有用的信息和知识。"}, {"type": "single", "q": "下列哪项属于描述类数据挖掘任务？", "options": ["分类", "回归", "关联规则发现", "预测房价"], "answer": "C", "focus": "任务分类", "explain": "描述类任务包括聚类、关联规则发现；分类和回归属于预测类任务。"}, {"type": "judge", "q": "数据分析主要回答“发生了什么、为什么发生”，数据挖掘更强调发现潜在规律和预测。", "answer": "对", "focus": "数据分析与数据挖掘区别", "explain": "这是复习大纲与图片重点中反复出现的核心表述。"}, {"type": "blank", "q": "数据挖掘常被定义为从大量、不完全、有噪声、模糊、随机的数据中发现潜在有用的____。", "answer": "知识", "focus": "数据挖掘定义", "explain": "材料中使用“信息和知识”描述数据挖掘结果。"}, {"type": "short", "q": "结合一个业务例子说明数据分析与数据挖掘的区别和联系。", "answer": "要点：数据分析用统计方法处理数据并形成结论；数据挖掘自动发现隐藏规律；数据分析是基础、数据挖掘是进阶；例子可用销售日报统计与购物篮关联规则/客户流失预测对比。", "focus": "概念辨析与举例"}, {"type": "single", "q": "“预测哪些客户下月可能流失”更接近哪类任务？", "options": ["常规报表", "分类/预测建模", "数据清洗", "数据集成"], "answer": "B", "focus": "预测类任务", "explain": "它根据已有客户属性预测未来是否流失，属于预测类任务。"}, {"type": "single", "q": "“把客户按购买行为自动分成几类”更接近哪类任务？", "options": ["聚类", "回归", "固定报表", "数据联邦"], "answer": "A", "focus": "描述类任务", "explain": "没有预先给定类别标签，而是自动分群，属于聚类。"}, {"type": "single", "q": "下列哪项最能体现数据挖掘的“潜在规律发现”？", "options": ["查询本月销售额", "统计员工人数", "发现买面包者常同时买牛奶", "打印库存清单"], "answer": "C", "focus": "数据挖掘应用", "explain": "商品共现关系是关联规则挖掘的典型例子。"}, {"type": "judge", "q": "传统查询和OLAP更偏向对已知问题进行演绎式分析。", "answer": "对", "focus": "数据挖掘与传统分析", "explain": "docx中特别提醒传统查询/OLAP与数据挖掘推理方式不同。"}, {"type": "judge", "q": "回归任务预测的是离散类别标签。", "answer": "错", "focus": "分类与回归", "explain": "分类预测离散类别，回归预测连续数值。"}, {"type": "blank", "q": "预测类任务主要包括分类和____。", "answer": "回归", "focus": "任务分类", "explain": "复习大纲明确预测类任务为分类和回归。"}, {"type": "blank", "q": "描述类任务主要包括聚类和____发现。", "answer": "关联规则", "focus": "任务分类", "explain": "描述类任务包括聚类与关联规则发现。"}, {"type": "short", "q": "分别举一个分类、回归、聚类、关联规则的例子。", "answer": "分类：判断邮件是否垃圾；回归：预测房价；聚类：客户自动分群；关联规则：发现牛奶与面包共现。例子需体现目标变量或无标签分群/共现规则。", "focus": "四类任务辨析"}, {"type": "single", "q": "“根据历史销售额预测下月销售额”属于哪类任务？", "options": ["回归", "聚类", "关联规则", "数据清洗"], "answer": "A", "focus": "回归任务", "explain": "预测连续数值通常属于回归任务。"}, {"type": "single", "q": "“发现网站点击流中的共现访问路径”更接近哪类挖掘？", "options": ["关联分析", "数据归一化", "异常值清洗", "固定报表"], "answer": "A", "focus": "关联规则应用", "explain": "材料中关联分析应用包括网站点击流挖掘。"}, {"type": "judge", "q": "数据挖掘一定只处理完全准确、无噪声的数据。", "answer": "错", "focus": "数据挖掘定义", "explain": "材料定义中特别包含不完全、有噪声、模糊、随机的数据。"}, {"type": "judge", "q": "分类和回归都属于预测类任务。", "answer": "对", "focus": "任务分类", "explain": "docx明确预测类任务包括分类和回归。"}, {"type": "blank", "q": "数据分析是基础，数据挖掘是____。", "answer": "进阶", "focus": "二者关系", "explain": "期末复习大纲PDF明确两者关系。"}, {"type": "blank", "q": "聚类不依赖预先给定的类别____。", "answer": "标签", "focus": "聚类任务", "explain": "聚类属于无监督学习，不依赖预先给定标签。"}, {"type": "short", "q": "为什么说数据挖掘更适合处理“传统逻辑不清晰”的复杂数据问题？", "answer": "因为当数据量很大、关系复杂、人眼和传统逻辑难以直接总结规律时，数据挖掘可通过算法模型自动发现隐藏模式、关联或预测关系。", "focus": "数据挖掘适用场景"}];
+function normalize(s) { return (s || "").toString().trim().replace(/\s+/g, "").toLowerCase(); }
+function optionLetter(i) { return String.fromCharCode(65 + i); }
+function render() {
+  const box = document.querySelector("#questions");
+  box.innerHTML = questions.map((q, i) => {
+    const idx = i + 1;
+    const tag = `<span class="tag">重点：${q.focus}</span>`;
+    if (q.type === "single") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div>${q.options.map((o,j)=>`<label><input type="radio" name="q${i}" value="${optionLetter(j)}"> ${optionLetter(j)}. ${o}</label>`).join("")}<div class="fb"></div></div>`;
+    }
+    if (q.type === "judge") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q}（ ） ${tag}</div><label><input type="radio" name="q${i}" value="对"> 对</label><label><input type="radio" name="q${i}" value="错"> 错</label><div class="fb"></div></div>`;
+    }
+    if (q.type === "blank") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><input type="text" name="q${i}"><div class="fb"></div></div>`;
+    }
+    return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><textarea name="q${i}" placeholder="在这里作答"></textarea><div class="fb warn">参考要点：${q.answer}<br>重点关注：${q.focus}</div></div>`;
+  }).join("");
+}
+function setFeedback(i, ok, text) {
+  const fb = document.querySelector(`[data-i="${i}"] .fb`);
+  fb.className = "fb " + (ok ? "ok" : "bad");
+  fb.innerHTML = text;
+}
+function grade() {
+  let score = 0, right = 0, wrong = 0;
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+      return;
+    }
+    let value = "";
+    if (q.type === "blank") value = document.querySelector(`[name="q${i}"]`).value;
+    else value = document.querySelector(`[name="q${i}"]:checked`)?.value || "";
+    const ok = normalize(value) === normalize(q.answer);
+    if (ok) { score += q.type === "judge" ? 1 : 2; right++; } else wrong++;
+    setFeedback(i, ok, `答案：${q.answer}。你的答案：${value || "未作答"}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+  });
+  document.querySelector("#score").textContent = score;
+  document.querySelector("#right").textContent = right;
+  document.querySelector("#wrong").textContent = wrong;
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+function reveal() {
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+    } else {
+      setFeedback(i, true, `答案：${q.answer}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+    }
+  });
+}
+function resetAll() { document.querySelectorAll("input, textarea").forEach(el => { if (el.type === "radio") el.checked = false; else el.value = ""; }); document.querySelectorAll(".fb").forEach(el => { el.className = "fb"; el.innerHTML = ""; }); document.querySelector("#score").textContent = "0"; document.querySelector("#right").textContent = "0"; document.querySelector("#wrong").textContent = "0"; }
+render();
+</script>
+</body>
+</html>

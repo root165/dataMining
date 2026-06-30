@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第4章节测试：数据探索与描述性统计</title>
+  <style>
+    :root { --ink:#172033; --muted:#5f6f85; --line:#d8e2ee; --bg:#f6f8fb; --panel:#fff; --blue:#2563eb; --green:#166534; --red:#b91c1c; --amber:#92400e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+    header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+    .bar, main { max-width:980px; margin:0 auto; }
+    .bar { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 18px 42px; }
+    button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; }
+    button.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .score { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .score div, section { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+    .score div { padding:10px; text-align:center; }
+    .score strong { display:block; font-size:22px; }
+    section { padding:18px; margin-bottom:16px; }
+    .note { color:var(--muted); margin-top:0; }
+    .q { padding:15px 0; border-top:1px solid var(--line); }
+    .q:first-child { border-top:0; padding-top:0; }
+    .qt { font-weight:700; margin-bottom:8px; }
+    .tag { display:inline-block; margin-left:6px; color:#334155; background:#eef4ff; border:1px solid #dbeafe; border-radius:999px; padding:1px 8px; font-size:12px; font-weight:400; }
+    label { display:block; padding:6px 8px; border-radius:6px; }
+    label:hover { background:#eef4ff; }
+    input[type=text], textarea { width:100%; border:1px solid var(--line); border-radius:6px; padding:9px 10px; font:inherit; background:#fff; }
+    textarea { min-height:128px; resize:vertical; }
+    .fb { display:none; margin-top:10px; border-radius:6px; padding:10px 12px; font-size:14px; }
+    .ok { display:block; background:#ecfdf3; color:var(--green); }
+    .bad { display:block; background:#fef2f2; color:var(--red); }
+    .warn { display:block; background:#fff7ed; color:var(--amber); }
+    @media (max-width:700px) { .score { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>第4章节测试：数据探索与描述性统计</h1>
+    <div>
+      <button class="primary" onclick="grade()">交卷纠错</button>
+      <button onclick="reveal()">显示解析</button>
+      <button onclick="resetAll()">清空</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="score">
+    <div><strong id="score">0</strong>客观题得分</div>
+    <div><strong id="right">0</strong>正确</div>
+    <div><strong id="wrong">0</strong>待改</div>
+  </div>
+  <section>
+    <p class="note">答题后会显示解析，并指出本题重点关注的知识点。简答题提供参考要点，请按要点自查。</p>
+    <div id="questions"></div>
+  </section>
+</main>
+<script>
+const questions = [{"type": "single", "q": "血型属于哪类数据属性？", "options": ["连续型", "离散型", "标称型", "有序型"], "answer": "C", "focus": "数据属性类型", "explain": "血型是类别间无顺序、无程度差异的标称型数据。"}, {"type": "single", "q": "下列哪一项对异常值最稳健？", "options": ["极差", "均值", "中位数绝对偏差MAD", "方差"], "answer": "C", "focus": "稳健差异量数", "explain": "docx明确MAD是对异常值极度不敏感的最稳健差异量数。"}, {"type": "blank", "q": "两个变量同向变化时，协方差通常为____。", "answer": "正", "focus": "协方差", "explain": "材料强调同向为正、反向为负。"}, {"type": "judge", "q": "协方差矩阵的对角线元素是各变量的方差。", "answer": "对", "focus": "协方差矩阵", "explain": "图片OCR明确协方差矩阵对角线为方差。"}, {"type": "short", "q": "说明数据探索在数据挖掘流程中的作用。", "answer": "要点：初步了解数据内容、性质与质量；评估完整性、一致性；识别模式和分布；为选择预处理工具和分析技术提供依据。", "focus": "数据探索作用"}, {"type": "single", "q": "“职工人数”属于哪类数据？", "options": ["连续型", "离散型", "标称型", "有序型"], "answer": "B", "focus": "数据属性类型", "explain": "职工人数通过计数得到，只能取特定孤立值，属于离散型。"}, {"type": "single", "q": "“满意度等级”属于哪类数据？", "options": ["连续型", "离散型", "标称型", "有序型"], "answer": "D", "focus": "有序型", "explain": "满意度等级有顺序但不能做普通加减运算，属于有序型。"}, {"type": "single", "q": "最容易受极端值影响的集中量数是？", "options": ["均值", "中位数", "众数", "百分位数"], "answer": "A", "focus": "集中量数", "explain": "图片OCR指出均值受极端值影响大。"}, {"type": "single", "q": "Pearson相关系数主要衡量什么？", "options": ["线性相关程度", "项集频繁程度", "分类标签数量", "簇内SSE"], "answer": "A", "focus": "相关系数", "explain": "Pearson相关系数衡量两个随机变量之间线性相关程度。"}, {"type": "judge", "q": "有序型数据有顺序差异，但不能直接按连续数值进行常规加减。", "answer": "对", "focus": "有序型", "explain": "复习大纲用成绩等级、借阅频率说明有序型特点。"}, {"type": "judge", "q": "极差能反映最大值和最小值跨度，但受极端值影响大。", "answer": "对", "focus": "差异量数", "explain": "极差=max-min，简单但易受极端值影响。"}, {"type": "blank", "q": "MAD的中文含义是中位数____偏差。", "answer": "绝对", "focus": "MAD", "explain": "MAD即中位数绝对偏差。"}, {"type": "blank", "q": "协方差矩阵的非对角线元素是变量之间的____。", "answer": "协方差", "focus": "协方差矩阵", "explain": "图片OCR明确对角线为方差，非对角线为协方差。"}, {"type": "short", "q": "比较均值、中位数、众数在极端值影响下的差异。", "answer": "均值使用全部数值求和后平均，受极端值影响大；中位数取排序后中间位置，较稳健；众数取出现次数最多的值，也不直接受极端数值大小影响，但可能不唯一或不存在。", "focus": "集中量数对比"}, {"type": "single", "q": "销售额属于哪类数据？", "options": ["连续型", "标称型", "有序型", "文本型"], "answer": "A", "focus": "连续型数据", "explain": "销售额可在区间内取值，复习大纲归为连续型。"}, {"type": "single", "q": "众数的含义是？", "options": ["出现次数最多的值", "最大值减最小值", "排序后中间值", "变量变化趋势"], "answer": "A", "focus": "集中量数", "explain": "众数是出现次数最多的数据值。"}, {"type": "judge", "q": "同一变量与自身的协方差就是该变量的方差。", "answer": "对", "focus": "协方差", "explain": "docx和图片OCR都强调这一点。"}, {"type": "blank", "q": "IQR代表中间____%数据的波动范围。", "answer": "50", "focus": "IQR", "explain": "IQR即Q3-Q1，反映中间50%数据波动。"}, {"type": "short", "q": "如何根据变量变化方向判断协方差正负？", "answer": "两个变量同向变化时协方差为正；反向变化时协方差为负；同一变量的协方差就是方差。", "focus": "协方差含义"}, {"type": "judge", "q": "数据探索可帮助评估数据完整性和一致性。", "answer": "对", "focus": "数据探索作用", "explain": "图片OCR明确数据探索用于了解数据质量并评估完整性、一致性。"}];
+function normalize(s) { return (s || "").toString().trim().replace(/\s+/g, "").toLowerCase(); }
+function optionLetter(i) { return String.fromCharCode(65 + i); }
+function render() {
+  const box = document.querySelector("#questions");
+  box.innerHTML = questions.map((q, i) => {
+    const idx = i + 1;
+    const tag = `<span class="tag">重点：${q.focus}</span>`;
+    if (q.type === "single") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div>${q.options.map((o,j)=>`<label><input type="radio" name="q${i}" value="${optionLetter(j)}"> ${optionLetter(j)}. ${o}</label>`).join("")}<div class="fb"></div></div>`;
+    }
+    if (q.type === "judge") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q}（ ） ${tag}</div><label><input type="radio" name="q${i}" value="对"> 对</label><label><input type="radio" name="q${i}" value="错"> 错</label><div class="fb"></div></div>`;
+    }
+    if (q.type === "blank") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><input type="text" name="q${i}"><div class="fb"></div></div>`;
+    }
+    return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><textarea name="q${i}" placeholder="在这里作答"></textarea><div class="fb warn">参考要点：${q.answer}<br>重点关注：${q.focus}</div></div>`;
+  }).join("");
+}
+function setFeedback(i, ok, text) {
+  const fb = document.querySelector(`[data-i="${i}"] .fb`);
+  fb.className = "fb " + (ok ? "ok" : "bad");
+  fb.innerHTML = text;
+}
+function grade() {
+  let score = 0, right = 0, wrong = 0;
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+      return;
+    }
+    let value = "";
+    if (q.type === "blank") value = document.querySelector(`[name="q${i}"]`).value;
+    else value = document.querySelector(`[name="q${i}"]:checked`)?.value || "";
+    const ok = normalize(value) === normalize(q.answer);
+    if (ok) { score += q.type === "judge" ? 1 : 2; right++; } else wrong++;
+    setFeedback(i, ok, `答案：${q.answer}。你的答案：${value || "未作答"}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+  });
+  document.querySelector("#score").textContent = score;
+  document.querySelector("#right").textContent = right;
+  document.querySelector("#wrong").textContent = wrong;
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+function reveal() {
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+    } else {
+      setFeedback(i, true, `答案：${q.answer}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+    }
+  });
+}
+function resetAll() { document.querySelectorAll("input, textarea").forEach(el => { if (el.type === "radio") el.checked = false; else el.value = ""; }); document.querySelectorAll(".fb").forEach(el => { el.className = "fb"; el.innerHTML = ""; }); document.querySelector("#score").textContent = "0"; document.querySelector("#right").textContent = "0"; document.querySelector("#wrong").textContent = "0"; }
+render();
+</script>
+</body>
+</html>

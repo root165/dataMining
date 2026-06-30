@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第7章节测试：聚类分析</title>
+  <style>
+    :root { --ink:#172033; --muted:#5f6f85; --line:#d8e2ee; --bg:#f6f8fb; --panel:#fff; --blue:#2563eb; --green:#166534; --red:#b91c1c; --amber:#92400e; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+    header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+    .bar, main { max-width:980px; margin:0 auto; }
+    .bar { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 18px 42px; }
+    button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; }
+    button.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .score { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .score div, section { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+    .score div { padding:10px; text-align:center; }
+    .score strong { display:block; font-size:22px; }
+    section { padding:18px; margin-bottom:16px; }
+    .note { color:var(--muted); margin-top:0; }
+    .q { padding:15px 0; border-top:1px solid var(--line); }
+    .q:first-child { border-top:0; padding-top:0; }
+    .qt { font-weight:700; margin-bottom:8px; }
+    .tag { display:inline-block; margin-left:6px; color:#334155; background:#eef4ff; border:1px solid #dbeafe; border-radius:999px; padding:1px 8px; font-size:12px; font-weight:400; }
+    label { display:block; padding:6px 8px; border-radius:6px; }
+    label:hover { background:#eef4ff; }
+    input[type=text], textarea { width:100%; border:1px solid var(--line); border-radius:6px; padding:9px 10px; font:inherit; background:#fff; }
+    textarea { min-height:128px; resize:vertical; }
+    .fb { display:none; margin-top:10px; border-radius:6px; padding:10px 12px; font-size:14px; }
+    .ok { display:block; background:#ecfdf3; color:var(--green); }
+    .bad { display:block; background:#fef2f2; color:var(--red); }
+    .warn { display:block; background:#fff7ed; color:var(--amber); }
+    @media (max-width:700px) { .score { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>第7章节测试：聚类分析</h1>
+    <div>
+      <button class="primary" onclick="grade()">交卷纠错</button>
+      <button onclick="reveal()">显示解析</button>
+      <button onclick="resetAll()">清空</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="score">
+    <div><strong id="score">0</strong>客观题得分</div>
+    <div><strong id="right">0</strong>正确</div>
+    <div><strong id="wrong">0</strong>待改</div>
+  </div>
+  <section>
+    <p class="note">答题后会显示解析，并指出本题重点关注的知识点。简答题提供参考要点，请按要点自查。</p>
+    <div id="questions"></div>
+  </section>
+</main>
+<script>
+const questions = [{"type": "single", "q": "K-means通常使用什么作为簇的质心？", "options": ["均值", "众数", "支持度", "后验概率"], "answer": "A", "focus": "K-means质心", "explain": "材料明确K-means使用均值作为质心，并用SSE衡量紧凑度。"}, {"type": "single", "q": "K-medoids相对K-means的一个优势是？", "options": ["一定更快", "对噪声和极端值更鲁棒", "不需要距离度量", "只能处理文本"], "answer": "B", "focus": "K-medoids对比", "explain": "K-medoids中心点为实际样本点，对噪声和极端值更鲁棒，但复杂度通常更高。"}, {"type": "blank", "q": "K-means中常用____衡量簇的紧凑度。", "answer": "SSE", "focus": "误差平方和", "explain": "SSE即误差平方和，越小表示聚类越紧凑。"}, {"type": "judge", "q": "聚类属于无监督学习，不依赖预先给定的类别标签。", "answer": "对", "focus": "聚类定义", "explain": "期末复习大纲明确聚类属于无监督学习。"}, {"type": "short", "q": "写出K-means算法步骤，并说明它的主要局限。", "answer": "步骤：选k个初始质心；按最近质心分配样本；重新计算质心；迭代直到质心不变、SSE不再优化或达到迭代上限。局限：需预设K，对初始质心和异常值敏感，不适合非球形、不同尺寸/密度簇。", "focus": "K-means大题"}, {"type": "single", "q": "欧氏距离的核心含义是？", "options": ["空间中两点直线距离", "各维绝对差之和", "规则置信度", "类别后验概率"], "answer": "A", "focus": "距离度量", "explain": "图片OCR称欧氏距离为空间中两点之间的最短直线距离。"}, {"type": "single", "q": "曼哈顿距离通常计算为？", "options": ["各维绝对差之和", "夹角余弦", "均方误差", "支持度计数"], "answer": "A", "focus": "曼哈顿距离", "explain": "曼哈顿距离把各特征上的绝对差加起来。"}, {"type": "single", "q": "余弦相似度更关注向量的什么？", "options": ["方向", "绝对长度", "样本标签", "事务总数"], "answer": "A", "focus": "余弦相似度", "explain": "图片OCR指出余弦相似度忽略绝对长度，关注夹角/方向。"}, {"type": "single", "q": "K-means中“离散质心法”的风险之一是？", "options": ["可能选中离群点", "无法指定K", "不需要计算距离", "只能用于分类"], "answer": "A", "focus": "初始质心选择", "explain": "docx与图片OCR均提到离散质心法可能选中离群点且开销大。"}, {"type": "single", "q": "DBSCAN的两个重要参数是？", "options": ["eps和MinPts", "minsup和minconf", "TP和FP", "Q1和Q3"], "answer": "A", "focus": "DBSCAN", "explain": "期末大纲明确DBSCAN参数为eps和MinPts。"}, {"type": "judge", "q": "K-means适合所有任意形状、任意密度的簇。", "answer": "错", "focus": "K-means局限", "explain": "材料强调K-means不适合非球形、不同尺寸或不同密度簇。"}, {"type": "judge", "q": "使用欧氏距离时，均值作为质心可使SSE达到理论最小。", "answer": "对", "focus": "SSE与质心", "explain": "图片OCR明确这一最优条件。"}, {"type": "blank", "q": "K-medoids的中心点必须从____点中选取。", "answer": "样本", "focus": "K-medoids", "explain": "K-medoids从样本点中选取实际中心点。"}, {"type": "blank", "q": "K-means算法通常迭代到质心不再变化或____不再变优。", "answer": "SSE", "focus": "K-means终止条件", "explain": "图片OCR列出质心不变化、SSE不再变优或达到最大迭代次数。"}, {"type": "short", "q": "比较欧氏距离、曼哈顿距离、余弦相似度的适用场景。", "answer": "欧氏距离适合连续数值数据中的直线距离；曼哈顿距离适合网格路径或按维度绝对差累计的场景；余弦相似度关注方向，常用于文本和高维稀疏数据。", "focus": "距离度量对比"}, {"type": "short", "q": "为什么K-means对异常值敏感？K-medoids如何改善？", "answer": "K-means使用均值作质心，极端值会拉动均值导致质心偏移、SSE升高。K-medoids从实际样本点中选中心点，并以绝对误差和为标准，对极端值更鲁棒。", "focus": "K-means与K-medoids"}, {"type": "single", "q": "层次聚类常用什么形式表示聚类过程？", "options": ["树状图", "混淆矩阵", "FP树", "ROC曲线"], "answer": "A", "focus": "层次聚类", "explain": "期末大纲提到层次聚类可用树状图表示。"}, {"type": "judge", "q": "K-means每个数据元素属于且仅属于一个簇。", "answer": "对", "focus": "K-means基本思想", "explain": "图片OCR明确每个数据元素属于且仅属于一个分组。"}, {"type": "blank", "q": "K-means对初始____敏感。", "answer": "质心", "focus": "K-means局限", "explain": "docx和图片OCR均强调初始质心影响结果。"}, {"type": "short", "q": "列出K-means初始质心选择的几种方法。", "answer": "随机选择；多次运行选最小SSE；使用层次聚类提取质心；离散质心法。需说明离散质心法可能选中离群点且计算开销大。", "focus": "初始质心选择"}];
+function normalize(s) { return (s || "").toString().trim().replace(/\s+/g, "").toLowerCase(); }
+function optionLetter(i) { return String.fromCharCode(65 + i); }
+function render() {
+  const box = document.querySelector("#questions");
+  box.innerHTML = questions.map((q, i) => {
+    const idx = i + 1;
+    const tag = `<span class="tag">重点：${q.focus}</span>`;
+    if (q.type === "single") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div>${q.options.map((o,j)=>`<label><input type="radio" name="q${i}" value="${optionLetter(j)}"> ${optionLetter(j)}. ${o}</label>`).join("")}<div class="fb"></div></div>`;
+    }
+    if (q.type === "judge") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q}（ ） ${tag}</div><label><input type="radio" name="q${i}" value="对"> 对</label><label><input type="radio" name="q${i}" value="错"> 错</label><div class="fb"></div></div>`;
+    }
+    if (q.type === "blank") {
+      return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><input type="text" name="q${i}"><div class="fb"></div></div>`;
+    }
+    return `<div class="q" data-i="${i}"><div class="qt">${idx}. ${q.q} ${tag}</div><textarea name="q${i}" placeholder="在这里作答"></textarea><div class="fb warn">参考要点：${q.answer}<br>重点关注：${q.focus}</div></div>`;
+  }).join("");
+}
+function setFeedback(i, ok, text) {
+  const fb = document.querySelector(`[data-i="${i}"] .fb`);
+  fb.className = "fb " + (ok ? "ok" : "bad");
+  fb.innerHTML = text;
+}
+function grade() {
+  let score = 0, right = 0, wrong = 0;
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+      return;
+    }
+    let value = "";
+    if (q.type === "blank") value = document.querySelector(`[name="q${i}"]`).value;
+    else value = document.querySelector(`[name="q${i}"]:checked`)?.value || "";
+    const ok = normalize(value) === normalize(q.answer);
+    if (ok) { score += q.type === "judge" ? 1 : 2; right++; } else wrong++;
+    setFeedback(i, ok, `答案：${q.answer}。你的答案：${value || "未作答"}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+  });
+  document.querySelector("#score").textContent = score;
+  document.querySelector("#right").textContent = right;
+  document.querySelector("#wrong").textContent = wrong;
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+function reveal() {
+  questions.forEach((q, i) => {
+    if (q.type === "short") {
+      const fb = document.querySelector(`[data-i="${i}"] .fb`);
+      fb.style.display = "block";
+    } else {
+      setFeedback(i, true, `答案：${q.answer}。<br>解析：${q.explain}<br>重点关注：${q.focus}`);
+    }
+  });
+}
+function resetAll() { document.querySelectorAll("input, textarea").forEach(el => { if (el.type === "radio") el.checked = false; else el.value = ""; }); document.querySelectorAll(".fb").forEach(el => { el.className = "fb"; el.innerHTML = ""; }); document.querySelector("#score").textContent = "0"; document.querySelector("#right").textContent = "0"; document.querySelector("#wrong").textContent = "0"; }
+render();
+</script>
+</body>
+</html>
