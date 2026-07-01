@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FP-Growth · 频繁模式树 可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; padding: 30px; color: #333; }
+  h1 { text-align: center; font-size: 28px; margin-bottom: 6px; color: #1a1a2e; }
+  .subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1200px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .card h2 { font-size: 18px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 3px solid #27ae60; display: flex; align-items: center; gap: 8px; }
+  .card h2 .badge { font-size: 12px; background: #27ae60; color: #fff; padding: 2px 10px; border-radius: 12px; }
+  .card.full { grid-column: 1 / -1; }
+  .card.blue h2 { border-bottom-color: #4a90d9; }
+  .card.blue .badge { background: #4a90d9; }
+  .card.orange h2 { border-bottom-color: #e67e22; }
+  .card.orange .badge { background: #e67e22; }
+  .card.purple h2 { border-bottom-color: #8e44ad; }
+  .card.purple .badge { background: #8e44ad; }
+  .card.red h2 { border-bottom-color: #e74c3c; }
+  .card.red .badge { background: #e74c3c; }
+
+  .desc { font-size: 13px; color: #555; line-height: 1.7; margin-top: 10px; }
+  .desc strong { color: #2c3e50; }
+  .formula { text-align: center; background: #f8f9fa; padding: 10px; border-radius: 8px; margin: 10px 0; font-family: 'Courier New', monospace; font-size: 14px; }
+
+  .trans-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  .trans-table th { background: #27ae60; color: #fff; padding: 8px 12px; text-align: left; }
+  .trans-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+  .trans-table tr:nth-child(even) { background: #f8f9fa; }
+  .trans-table .tag { display: inline-block; background: #e8f8f0; color: #1e8449; padding: 2px 10px; border-radius: 12px; margin: 2px 3px; font-size: 12px; }
+  .trans-table .tag.dim { background: #eee; color: #999; }
+
+  .flex-center { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin: 10px 0; }
+  .flex-between { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .compare-box { flex: 1; min-width: 200px; padding: 16px; border-radius: 12px; text-align: center; }
+  .compare-box .title { font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+  .compare-box .item { font-size: 13px; padding: 3px 0; }
+
+  .controls { display: flex; gap: 10px; justify-content: center; margin: 14px 0; flex-wrap: wrap; }
+  .controls button { padding: 8px 22px; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+  .controls button:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .btn-prev { background: #ecf0f1; color: #555; }
+  .btn-next { background: #27ae60; color: #fff; }
+  .btn-reset { background: #e74c3c; color: #fff; }
+  .controls button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .step-detail { background: #f8f9fa; border-radius: 10px; padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.7; }
+  .step-detail strong { color: #2c3e50; }
+  .step-detail .hl { color: #e74c3c; font-weight: 600; }
+  .step-detail .hl-green { color: #27ae60; font-weight: 600; }
+
+  /* FP 树可视化 */
+  .fptree { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 10px 0; }
+  .fptree .row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+  .fp-node { display: inline-flex; flex-direction: column; align-items: center; position: relative; }
+  .fp-node .box { padding: 6px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 2px solid; min-width: 50px; text-align: center; position: relative; }
+  .fp-node .box.root { background: #2c3e50; color: #fff; border-color: #2c3e50; }
+  .fp-node .box.item { background: #d5f5e3; color: #1e8449; border-color: #27ae60; }
+  .fp-node .box.item.highlight { background: #fef9e7; border-color: #f1c40f; }
+  .fp-node .count { font-size: 10px; color: #888; margin-top: 2px; }
+  .fp-node .children { display: flex; gap: 24px; margin-top: 8px; position: relative; }
+  .fp-node .children::before { content: ''; position: absolute; top: -4px; left: 50%; width: 60%; height: 0; }
+  .fp-node .edge { font-size: 11px; color: #bbb; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); }
+  .fp-line { width: 1px; height: 8px; background: #ccc; }
+
+  /* 条件模式基 */
+  .cpb-grid { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+  .cpb-card { background: #f8f9fa; border-radius: 10px; padding: 12px; text-align: center; min-width: 140px; }
+  .cpb-card .cpb-title { font-weight: 600; font-size: 13px; color: #555; margin-bottom: 6px; }
+  .cpb-card .cpb-item { font-size: 12px; padding: 2px 0; }
+
+  .item-tag { display: inline-block; padding: 4px 12px; border-radius: 14px; font-size: 12px; font-weight: 600; margin: 2px; }
+  .item-tag.freq { background: #d5f5e3; color: #1e8449; }
+  .item-tag.dim { background: #eee; color: #999; }
+  .item-tag.accent { background: #fef9e7; color: #7d6608; border: 1px dashed #f1c40f; }
+
+  .sup-control { display: flex; align-items: center; gap: 14px; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+  .sup-control input[type="range"] { width: 180px; }
+  .sup-val { font-weight: bold; font-size: 20px; color: #27ae60; min-width: 50px; text-align: center; }
+
+  .freq-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 8px 0; }
+  .freq-list .item { background: #d5f5e3; color: #1e8449; padding: 4px 14px; border-radius: 14px; font-size: 13px; font-weight: 600; }
+
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>FP-Growth · 频繁模式树可视化</h1>
+<p class="subtitle">Frequent Pattern Tree · No Candidate Generation · Recursive Mining</p>
+
+<div class="grid">
+
+  <!-- 概念卡片 -->
+  <div class="card">
+    <h2><span>🌳</span> FP-Growth 核心思想 <span class="badge">概览</span></h2>
+    <div class="flex-center" style="gap:16px;">
+      <div style="text-align:center;padding:10px;"><div style="font-size:32px;">📡</div><div style="font-size:13px;font-weight:600;margin-top:4px;">扫描 1 次</div><div style="font-size:12px;color:#666;">统计频次，排序</div></div>
+      <div style="font-size:24px;color:#bbb;">→</div>
+      <div style="text-align:center;padding:10px;"><div style="font-size:32px;">🌲</div><div style="font-size:13px;font-weight:600;margin-top:4px;">构建 FP 树</div><div style="font-size:12px;color:#666;">压缩事务</div></div>
+      <div style="font-size:24px;color:#bbb;">→</div>
+      <div style="text-align:center;padding:10px;"><div style="font-size:32px;">🔍</div><div style="font-size:13px;font-weight:600;margin-top:4px;">递归挖掘</div><div style="font-size:12px;color:#666;">条件模式基</div></div>
+    </div>
+    <div class="desc" style="text-align:center;">
+      相比 Apriori：<strong>不产生候选项集</strong>，通常只需 <strong>扫描 2 次</strong> 数据库，适合海量交易数据。
+    </div>
+  </div>
+
+  <div class="card blue">
+    <h2><span>📦</span> vs Apriori <span class="badge">对比</span></h2>
+    <div class="flex-between">
+      <div class="compare-box" style="background:#fef9e7;">
+        <div class="title" style="color:#e67e22;">Apriori</div>
+        <div class="item">✅ 基于剪枝原理</div>
+        <div class="item" style="color:#e74c3c;">❌ 产生大量候选集</div>
+        <div class="item" style="color:#e74c3c;">❌ 多次扫描数据库</div>
+      </div>
+      <div class="compare-box" style="background:#e8f8f0;">
+        <div class="title" style="color:#27ae60;">FP-Growth</div>
+        <div class="item">✅ FP 树压缩数据</div>
+        <div class="item" style="color:#27ae60;">✅ 无候选项集</div>
+        <div class="item" style="color:#27ae60;">✅ 通常只需 2 次扫描</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 步进演示 -->
+  <div class="card full">
+    <h2><span>👣</span> FP-Growth 逐步演示 <span class="badge" style="background:#e67e22;">交互</span></h2>
+
+    <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;">
+      <div style="flex:0 0 auto;">
+        <div style="font-weight:600;font-size:14px;margin-bottom:6px;text-align:center;">事务数据库 (N=6)</div>
+        <table class="trans-table" style="width:auto;">
+          <tr><th>TID</th><th>原始项集</th><th>排序后（频次↓）</th></tr>
+          <tr><td>1</td><td><span class="tag">牛奶</span><span class="tag">面包</span><span class="tag">鸡蛋</span></td><td><span class="tag">面包</span><span class="tag">牛奶</span><span class="tag dim">鸡蛋</span></td></tr>
+          <tr><td>2</td><td><span class="tag">面包</span><span class="tag">尿布</span><span class="tag">啤酒</span><span class="tag">鸡蛋</span></td><td><span class="tag">面包</span><span class="tag">尿布</span><span class="tag">啤酒</span><span class="tag dim">鸡蛋</span></td></tr>
+          <tr><td>3</td><td><span class="tag">牛奶</span><span class="tag">尿布</span><span class="tag">啤酒</span><span class="tag">可乐</span></td><td><span class="tag">尿布</span><span class="tag">啤酒</span><span class="tag">牛奶</span><span class="tag dim">可乐</span></td></tr>
+          <tr><td>4</td><td><span class="tag">面包</span><span class="tag">牛奶</span><span class="tag">尿布</span><span class="tag">啤酒</span></td><td><span class="tag">面包</span><span class="tag">尿布</span><span class="tag">啤酒</span><span class="tag">牛奶</span></td></tr>
+          <tr><td>5</td><td><span class="tag">面包</span><span class="tag">牛奶</span><span class="tag">鸡蛋</span><span class="tag">可乐</span></td><td><span class="tag">面包</span><span class="tag">牛奶</span><span class="tag dim">鸡蛋</span><span class="tag dim">可乐</span></td></tr>
+          <tr><td>6</td><td><span class="tag">面包</span><span class="tag">啤酒</span><span class="tag">可乐</span></td><td><span class="tag">面包</span><span class="tag">啤酒</span><span class="tag dim">可乐</span></td></tr>
+        </table>
+      </div>
+
+      <div style="flex:1;min-width:300px;">
+        <div class="sup-control">
+          <span style="font-size:13px;">minSup = </span>
+          <input type="range" id="minSupSlider" min="1" max="5" value="3">
+          <span class="sup-val" id="minSupVal">3</span>
+          <span style="font-size:13px;">/ 6 (<span id="minSupPct">50</span>%)</span>
+        </div>
+
+        <div class="controls">
+          <button class="btn-prev" id="btnPrev" disabled>← 上一步</button>
+          <button class="btn-next" id="btnNext">下一步 →</button>
+          <button class="btn-reset" id="btnReset">⟲ 重置</button>
+        </div>
+
+        <div class="step-detail" id="stepDetail">
+          <strong>第 1 步：</strong>扫描数据库，统计每个项的频次，删除 < minSup 的项，按频次降序排列。
+        </div>
+
+        <div id="stepVisual" style="margin-top:10px;min-height:260px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 完整流程总结 -->
+  <div class="card full purple">
+    <h2><span>🏁</span> FP-Growth 完整流程 <span class="badge">总结</span></h2>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+      <div style="text-align:center;flex:1;min-width:140px;padding:12px;background:#e8f8f0;border-radius:10px;">
+        <div style="font-size:28px;">📡</div>
+        <div style="font-weight:600;font-size:13px;">第 1 次扫描</div>
+        <div style="font-size:12px;color:#666;">统计频次<br>删除不频繁项<br>按频次排序</div>
+      </div>
+      <div style="font-size:24px;color:#bbb;align-self:center;">→</div>
+      <div style="text-align:center;flex:1;min-width:140px;padding:12px;background:#e8f8f0;border-radius:10px;">
+        <div style="font-size:28px;">🌲</div>
+        <div style="font-weight:600;font-size:13px;">第 2 次扫描</div>
+        <div style="font-size:12px;color:#666;">逐条插入事务<br>构建 FP 树<br>维护头指针表</div>
+      </div>
+      <div style="font-size:24px;color:#bbb;align-self:center;">→</div>
+      <div style="text-align:center;flex:1;min-width:140px;padding:12px;background:#fef9e7;border-radius:10px;">
+        <div style="font-size:28px;">🔍</div>
+        <div style="font-weight:600;font-size:13px;">递归挖掘</div>
+        <div style="font-size:12px;color:#666;">从底向上<br>构建条件模式基<br>生成条件 FP 树</div>
+      </div>
+      <div style="font-size:24px;color:#bbb;align-self:center;">→</div>
+      <div style="text-align:center;flex:1;min-width:140px;padding:12px;background:#d5f5e3;border-radius:10px;">
+        <div style="font-size:28px;">📋</div>
+        <div style="font-weight:600;font-size:13px;">频繁项集</div>
+        <div style="font-size:12px;color:#666;">输出所有<br>满足 minSup<br>的频繁项集</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ========== FP-Growth 步进演示 ==========
+const transactions = [
+  ['牛奶', '面包', '鸡蛋'],
+  ['面包', '尿布', '啤酒', '鸡蛋'],
+  ['牛奶', '尿布', '啤酒', '可乐'],
+  ['面包', '牛奶', '尿布', '啤酒'],
+  ['面包', '牛奶', '鸡蛋', '可乐'],
+  ['面包', '啤酒', '可乐']
+];
+
+const allItems = ['牛奶', '面包', '鸡蛋', '尿布', '啤酒', '可乐'];
+
+function countSupport(item) {
+  return transactions.filter(t => t.includes(item)).length;
+}
+
+// 排序函数：按频次降序，同频次按字母
+function sortByFreq(items, freqMap) {
+  return [...items].sort((a, b) => {
+    const d = (freqMap[b] || 0) - (freqMap[a] || 0);
+    return d !== 0 ? d : a.localeCompare(b);
+  });
+}
+
+let currentStep = 0;
+const TOTAL_STEPS = 5;
+
+function renderStep(step, minSup) {
+  const vis = document.getElementById('stepVisual');
+  const detail = document.getElementById('stepDetail');
+
+  // 计算频次
+  const freqMap = {};
+  allItems.forEach(item => { freqMap[item] = countSupport(item); });
+  const freqItems = allItems.filter(i => freqMap[i] >= minSup);
+  const sortedItems = sortByFreq(freqItems.slice(), freqMap);
+
+  const tag = (name, cls = 'freq') => `<span class="item-tag ${cls}">${name}</span>`;
+  const tagWithCount = (name, count, cls = 'freq') =>
+    `<span class="item-tag ${cls}">${name}<span style="font-weight:400;font-size:11px;color:#888;">:${count}</span></span>`;
+
+  let html = '';
+
+  if (step === 0) {
+    detail.innerHTML = `<strong>第 1 步：</strong>扫描数据库，统计每个项的<strong>支持度计数</strong>，删除频次 &lt; ${minSup} 的项，剩余项按频次<strong>降序排列</strong>。`;
+    const all = allItems.map(i => ({ name: i, count: freqMap[i], freq: freqMap[i] >= minSup }));
+    html = `<div style="text-align:center;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:8px;">项频次统计</div>
+      <div class="freq-list">${all.map(x => tagWithCount(x.name, x.count, x.freq ? 'freq' : 'dim')).join('')}</div>
+      <div style="margin-top:6px;font-size:12px;color:#e74c3c;">${all.filter(x => !x.freq).map(x => x.name).join('、') || '(无不频繁项)'} ${all.filter(x => !x.freq).length ? '被删除（频次 < ' + minSup + '）' : ''}</div>
+      <div style="margin-top:8px;font-weight:600;font-size:13px;">排序后：<span style="font-weight:400;">${sortedItems.join(' → ')}</span></div>
+    </div>`;
+  } else if (step === 1) {
+    detail.innerHTML = `<strong>第 2 步：</strong>创建 FP 树的<strong>根节点</strong>（null）。<span class="hl-green">第 2 次扫描</span>数据库，逐条读取事务，将每条事务中<strong>已排序</strong>的项插入树中，相同前缀路径<strong>共享节点</strong>，节点计数 +1。同时维护<strong>头指针表</strong>（Header Table）。`;
+
+    // 插入顺序展示
+    const sortedTrans = transactions.map(t => {
+      const filtered = t.filter(i => freqMap[i] >= minSup);
+      return sortByFreq(filtered, freqMap);
+    });
+
+    html = `<div style="font-size:13px;line-height:1.8;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">事务（已排序、去不频繁项）</div>
+      <table class="trans-table" style="width:100%;font-size:13px;">
+        <tr><th>TID</th><th>排序后项集</th></tr>
+        ${sortedTrans.map((t, i) => `<tr><td>${i + 1}</td><td>${
+          t.length ? t.map(x => `<span class="tag">${x}</span>`).join('') : '<span style="color:#ccc;">(空)</span>'
+        }</td></tr>`).join('')}
+      </table>
+      <div style="margin-top:6px;text-align:center;color:#888;">
+        依次插入事务 <strong>${sortedTrans.filter(t => t.length).map((t, i) => 'T' + (i+1)).join(' → ')}</strong>
+      </div>
+    </div>`;
+  } else if (step === 2) {
+    detail.innerHTML = `<strong>第 3 步：</strong>FP 树构建完成。查看树结构：根节点为 null，每个路径代表一组共享前缀的交易。同时维护<strong>头指针表</strong>，每个项通过链表链接到树中所有同名节点。`;
+
+    // Render a text-based FP tree representation
+    const buildTree = () => {
+      const root = { name: 'null', count: 0, children: {} };
+      for (const t of transactions) {
+        const filtered = t.filter(i => freqMap[i] >= minSup);
+        const sorted = sortByFreq(filtered, freqMap);
+        let node = root;
+        for (const item of sorted) {
+          if (!node.children[item]) node.children[item] = { name: item, count: 0, children: {} };
+          node.children[item].count++;
+          node = node.children[item];
+        }
+      }
+      return root;
+    };
+
+    const tree = buildTree();
+
+    function renderTree(node, depth = 0) {
+      const prefix = '　'.repeat(depth);
+      let res = '';
+      const entries = Object.entries(node.children);
+      for (const [name, child] of entries) {
+        const isLast = entries.indexOf([name, child]) === entries.length - 1;
+        const conn = depth === 0 ? '🌳 ' : (isLast ? '└─ ' : '├─ ');
+        res += `<div style="font-family:monospace;font-size:14px;line-height:1.8;">${prefix}${conn}<span style="font-weight:600;color:#1e8449;">${name}</span> <span style="color:#888;">:${child.count}</span></div>`;
+        res += renderTree(child, depth + 1);
+      }
+      return res;
+    }
+
+    // Header table
+    const headerTable = sortedItems.map(item => {
+      // count total nodes for this item in tree
+      let total = 0;
+      for (const t of transactions) {
+        const filtered = t.filter(i => freqMap[i] >= minSup);
+        if (filtered.includes(item)) total++;
+      }
+      return { name: item, count: freqMap[item], links: total };
+    });
+
+    html = `<div style="display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">🌲 FP 树</div>
+        <div style="background:#f8f9fa;padding:12px;border-radius:8px;">${renderTree(tree)}</div>
+      </div>
+      <div style="flex:0 0 auto;">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">📋 头指针表</div>
+        <table style="border-collapse:collapse;font-size:13px;">
+          <tr><th style="background:#27ae60;color:#fff;padding:6px 12px;text-align:left;">项</th><th style="background:#27ae60;color:#fff;padding:6px 12px;text-align:left;">频次</th><th style="background:#27ae60;color:#fff;padding:6px 12px;text-align:left;">节点链</th></tr>
+          ${headerTable.map(h => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:600;">${h.name}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;">${h.count}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#888;">${h.links} 个节点</td></tr>`).join('')}
+        </table>
+      </div>
+    </div>`;
+  } else if (step === 3) {
+    detail.innerHTML = `<strong>第 4 步：</strong><span class="hl-green">递归挖掘</span>。从头指针表<strong>底部开始</strong>（频次最低的项），向上逐个构建<strong>条件模式基</strong>（Conditional Pattern Base），再生成<strong>条件 FP 树</strong>，递归挖掘所有频繁项集。`;
+
+    // Generate conditional pattern bases
+    function getCPB(item) {
+      const cpbList = [];
+      for (const t of transactions) {
+        const filtered = t.filter(i => freqMap[i] >= minSup);
+        const sorted = sortByFreq(filtered, freqMap);
+        const idx = sorted.indexOf(item);
+        if (idx > 0) {
+          const prefix = sorted.slice(0, idx);
+          if (prefix.length) cpbList.push(prefix);
+        }
+      }
+      return cpbList;
+    }
+
+    // Process from bottom of sorted items
+    const reversed = [...sortedItems].reverse();
+    html = `<div style="font-size:13px;line-height:1.8;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">从底部向上挖掘（按频次↑）</div>`;
+    for (const item of reversed) {
+      const cpb = getCPB(item);
+      html += `<div style="margin:6px 0;padding:8px 12px;background:#f8f9fa;border-radius:8px;">
+        <strong style="color:#1e8449;">${item}</strong>（频次 ${freqMap[item]}） → 条件模式基：
+        ${cpb.length ? cpb.map(p => `{${p.join(', ')}}`).join('、') : '<span style="color:#ccc;">(空)</span>'}
+        ${cpb.length ? `<span style="color:#888;font-size:12px;"> → 条件 FP 树挖掘</span>` : `<span style="color:#e74c3c;font-size:12px;"> → 单路径，直接产出频繁组合</span>`}
+      </div>`;
+    }
+    html += `</div>`;
+  } else if (step === 4) {
+    detail.innerHTML = `<strong>第 5 步：</strong>输出挖掘结果。FP-Growth 递归挖掘出所有<strong>频繁项集</strong>，无需生成候选项集。`;
+
+    // Compute all frequent itemsets from FP-Growth (simplified: use brute force for demo)
+    function getAllSubsets(arr) {
+      const result = [];
+      function helper(start, current) {
+        if (current.length > 0) result.push([...current]);
+        for (let i = start; i < arr.length; i++) {
+          current.push(arr[i]);
+          helper(i + 1, current);
+          current.pop();
+        }
+      }
+      helper(0, []);
+      return result;
+    }
+
+    // 使用所有满足 minSup 的项集（简化，实际用 FP-Growth 结果）
+    const allFreqItemsets = [];
+    for (let len = 1; len <= sortedItems.length; len++) {
+      const subsets = getAllSubsets(sortedItems);
+      for (const subset of subsets) {
+        if (subset.length === len) {
+          const count = transactions.filter(t => subset.every(i => t.includes(i))).length;
+          if (count >= minSup) allFreqItemsets.push({ items: subset, count });
+        }
+      }
+    }
+    allFreqItemsets.sort((a, b) => b.items.length - a.items.length || b.count - a.count);
+
+    // Group by size
+    const groups = {};
+    allFreqItemsets.forEach(x => {
+      const k = x.items.length;
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(x);
+    });
+
+    html = `<div style="text-align:center;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;">📋 所有频繁项集（minSup=${minSup}）</div>
+      ${Object.entries(groups).sort((a, b) => a[0] - b[0]).map(([len, itemsets]) =>
+        `<div style="margin:6px 0;">
+          <span style="font-weight:600;font-size:13px;color:#555;">${len}-项集：</span>
+          ${itemsets.map(x => `<span class="item-tag" style="background:#d5f5e3;color:#1e8449;">{${x.items.join(',')}}<span style="font-weight:400;color:#888;">:${x.count}</span></span>`).join(' ')}
+        </div>`
+      ).join('')}
+      <div style="margin-top:10px;padding:10px;background:#e8f8f0;border-radius:8px;font-size:13px;color:#555;">
+        ✅ FP-Growth 通过 FP 树直接挖掘出以上 ${allFreqItemsets.length} 个频繁项集，
+        <strong style="color:#27ae60;">全程无需生成任何候选项集</strong>！
+      </div>
+    </div>`;
+  }
+
+  vis.innerHTML = html;
+}
+
+function updateStep(minSup) {
+  renderStep(currentStep, minSup);
+  document.getElementById('btnPrev').disabled = currentStep === 0;
+  document.getElementById('btnNext').disabled = currentStep >= TOTAL_STEPS - 1;
+}
+
+const slider = document.getElementById('minSupSlider');
+slider.addEventListener('input', function() {
+  const v = parseInt(this.value);
+  document.getElementById('minSupVal').textContent = v;
+  document.getElementById('minSupPct').textContent = Math.round(v / 6 * 100);
+  currentStep = 0;
+  updateStep(v);
+});
+
+document.getElementById('btnNext').addEventListener('click', function() {
+  if (currentStep < TOTAL_STEPS - 1) { currentStep++; updateStep(parseInt(slider.value)); }
+});
+
+document.getElementById('btnPrev').addEventListener('click', function() {
+  if (currentStep > 0) { currentStep--; updateStep(parseInt(slider.value)); }
+});
+
+document.getElementById('btnReset').addEventListener('click', function() {
+  currentStep = 0;
+  updateStep(parseInt(slider.value));
+});
+
+updateStep(3);
+</script>
+
+</body>
+</html>

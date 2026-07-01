@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apriori · 频繁项集与剪枝 可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; padding: 30px; color: #333; }
+  h1 { text-align: center; font-size: 28px; margin-bottom: 6px; color: #1a1a2e; }
+  .subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1200px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .card h2 { font-size: 18px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 3px solid #4a90d9; display: flex; align-items: center; gap: 8px; }
+  .card h2 .badge { font-size: 12px; background: #4a90d9; color: #fff; padding: 2px 10px; border-radius: 12px; }
+  .card.full { grid-column: 1 / -1; }
+  .card.green h2 { border-bottom-color: #27ae60; }
+  .card.green .badge { background: #27ae60; }
+  .card.red h2 { border-bottom-color: #e74c3c; }
+  .card.red .badge { background: #e74c3c; }
+  .card.purple h2 { border-bottom-color: #8e44ad; }
+  .card.purple .badge { background: #8e44ad; }
+  .card.orange h2 { border-bottom-color: #e67e22; }
+  .card.orange .badge { background: #e67e22; }
+
+  .desc { font-size: 13px; color: #555; line-height: 1.7; margin-top: 10px; }
+  .desc strong { color: #2c3e50; }
+  .formula { text-align: center; background: #f8f9fa; padding: 10px; border-radius: 8px; margin: 10px 0; font-family: 'Courier New', monospace; font-size: 14px; }
+
+  /* 事务数据库表格 */
+  .trans-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  .trans-table th { background: #4a90d9; color: #fff; padding: 8px 12px; text-align: left; }
+  .trans-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+  .trans-table tr:nth-child(even) { background: #f8f9fa; }
+  .trans-table .tag { display: inline-block; background: #e8f0fe; color: #1a5276; padding: 2px 10px; border-radius: 12px; margin: 2px 3px; font-size: 12px; }
+
+  /* Apriori 逐步 */
+  .step-row { display: flex; gap: 14px; align-items: flex-start; margin: 12px 0; flex-wrap: wrap; }
+  .step-box { flex: 1; min-width: 160px; background: #fafbfc; border: 1px solid #e8eaed; border-radius: 10px; padding: 12px; text-align: center; }
+  .step-box .step-title { font-weight: 600; font-size: 13px; color: #555; margin-bottom: 6px; }
+  .step-box .items { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .step-box .item-tag { padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 600; }
+  .item-tag.freq { background: #d5f5e3; color: #1e8449; }
+  .item-tag.cand { background: #fef9e7; color: #7d6608; border: 1px dashed #f1c40f; }
+  .item-tag.pruned { background: #fadbd8; color: #922b21; text-decoration: line-through; }
+  .item-tag.infreq { background: #f5b7b1; color: #922b21; }
+  .arrow { font-size: 24px; color: #aaa; align-self: center; padding: 0 4px; }
+  .step-label { font-size: 11px; color: #999; margin-top: 4px; }
+
+  /* 剪枝动画 */
+  .prune-demo { display: flex; gap: 20px; justify-content: center; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  .prune-tree { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .prune-tree .node { padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; position: relative; }
+  .prune-tree .node.freq { background: #d5f5e3; color: #1e8449; }
+  .prune-tree .node.infreq { background: #f5b7b1; color: #922b21; }
+  .prune-tree .node.pruned { background: #fadbd8; color: #922b21; text-decoration: line-through; opacity: 0.6; }
+  .prune-tree .arrow-down { color: #bbb; font-size: 16px; }
+  .prune-label { font-size: 12px; color: #888; }
+
+  .controls { display: flex; gap: 10px; justify-content: center; margin: 14px 0; flex-wrap: wrap; }
+  .controls button { padding: 8px 22px; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+  .controls button:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .btn-prev { background: #ecf0f1; color: #555; }
+  .btn-next { background: #4a90d9; color: #fff; }
+  .btn-reset { background: #e74c3c; color: #fff; }
+  .controls button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .step-detail { background: #f8f9fa; border-radius: 10px; padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.7; }
+  .step-detail strong { color: #2c3e50; }
+  .step-detail .hl { color: #e74c3c; font-weight: 600; }
+  .step-detail .hl-green { color: #27ae60; font-weight: 600; }
+  .highlight { background: #fff3cd; padding: 1px 4px; border-radius: 3px; }
+
+  .flex-center { display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin: 10px 0; }
+  .concept-icon { font-size: 36px; text-align: center; }
+  .concept-box { text-align: center; padding: 14px; background: #f8f9fa; border-radius: 12px; min-width: 140px; flex: 1; }
+  .concept-box .label { font-weight: 600; font-size: 14px; margin-top: 4px; }
+  .concept-box .val { font-size: 12px; color: #666; margin-top: 2px; }
+
+  /* minSup slider */
+  .sup-control { display: flex; align-items: center; gap: 14px; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+  .sup-control input[type="range"] { width: 180px; }
+  .sup-val { font-weight: bold; font-size: 20px; color: #e67e22; min-width: 50px; text-align: center; }
+
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Apriori · 频繁项集与剪枝</h1>
+<p class="subtitle">Frequent Itemset · Candidate Set · Pruning · Apriori Algorithm</p>
+
+<div class="grid">
+
+  <!-- 概念卡片 -->
+  <div class="card green">
+    <h2><span>📦</span> 频繁项集 <span class="badge">Frequent Itemset</span></h2>
+    <div class="concept-box" style="min-width:auto;">
+      <div class="label">满足最小支持度阈值 (minSup) 的项集</div>
+    </div>
+    <div class="formula">s(X) = σ(X) / N ≥ minSup</div>
+    <div class="desc">
+      <strong>例：</strong>若 minSup = 0.4（40%），共有 10 笔交易，<br>
+      {油条, 豆浆} 出现 4 次 → s = 4/10 = <strong>0.4 ≥ 0.4</strong> → <span style="color:#27ae60;">频繁</span><br>
+      {油条, 包子} 出现 1 次 → s = 1/10 = <strong>0.1 &lt; 0.4</strong> → <span style="color:#e74c3c;">非频繁</span>
+    </div>
+  </div>
+
+  <div class="card orange">
+    <h2><span>📋</span> 候选项集 <span class="badge">Candidate Set</span></h2>
+    <div class="concept-box" style="min-width:auto;">
+      <div class="label">未经支持度检验的项集</div>
+    </div>
+    <div class="desc">
+      <strong>Apriori 生成规则：</strong>由 L<sub>k-1</sub> 自连接生成 C<sub>k</sub>。<br>
+      即：频繁 (k-1)-项集两两合并，生成候选 k-项集。<br>
+      例：L₁ = {A, B, C} → C₂ = {AB, AC, BC}（待检验）
+    </div>
+  </div>
+
+  <div class="card red">
+    <h2><span>✂️</span> 剪枝 <span class="badge">Pruning</span></h2>
+    <div class="concept-box" style="min-width:auto;">
+      <div class="label">提前删除不可能频繁的项集，减少计算量</div>
+    </div>
+    <div class="formula">非频繁项集的超集 → 一定非频繁 → 直接剪掉</div>
+    <div class="desc">
+      <strong>Apriori 剪枝原理：</strong>若一个项集的某个子集不频繁，<br>则该项集本身<strong>必定不频繁</strong>，无需计算支持度。
+    </div>
+  </div>
+
+  <div class="card purple">
+    <h2><span>⚙️</span> Apriori 算法 <span class="badge">核心流程</span></h2>
+    <div class="flex-center" style="gap:10px;">
+      <div class="concept-box" style="min-width:80px;padding:10px;"><div class="concept-icon">C<sub>k</sub></div><div class="label">候选项集</div></div>
+      <div style="font-size:24px;color:#bbb;">→</div>
+      <div class="concept-box" style="min-width:80px;padding:10px;background:#d5f5e3;"><div class="concept-icon">✂️</div><div class="label">剪枝</div></div>
+      <div style="font-size:24px;color:#bbb;">→</div>
+      <div class="concept-box" style="min-width:80px;padding:10px;"><div class="concept-icon">📊</div><div class="label">扫描</div></div>
+      <div style="font-size:24px;color:#bbb;">→</div>
+      <div class="concept-box" style="min-width:80px;padding:10px;background:#d5f5e3;"><div class="concept-icon">L<sub>k</sub></div><div class="label">频繁项集</div></div>
+    </div>
+    <div class="desc">
+      <strong>广度搜索 + 候选集 + 剪枝</strong>：逐层迭代，每轮用上一轮频繁项集生成候选，剪枝后扫描数据库计数，得到新的频繁项集。
+    </div>
+  </div>
+
+  <!-- 逐步演示 -->
+  <div class="card full">
+    <h2><span>👣</span> Apriori 逐步演示 <span class="badge" style="background:#e67e22;">交互</span></h2>
+
+    <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;">
+      <!-- 事务数据库 -->
+      <div style="flex:0 0 auto;">
+        <div style="font-weight:600;font-size:14px;margin-bottom:6px;text-align:center;">事务数据库 (N=6)</div>
+        <table class="trans-table" style="width:auto;">
+          <tr><th>TID</th><th>购买的项</th></tr>
+          <tr><td>1</td><td><span class="tag">牛奶</span><span class="tag">面包</span><span class="tag">鸡蛋</span></td></tr>
+          <tr><td>2</td><td><span class="tag">面包</span><span class="tag">尿布</span><span class="tag">啤酒</span><span class="tag">鸡蛋</span></td></tr>
+          <tr><td>3</td><td><span class="tag">牛奶</span><span class="tag">尿布</span><span class="tag">啤酒</span><span class="tag">可乐</span></td></tr>
+          <tr><td>4</td><td><span class="tag">面包</span><span class="tag">牛奶</span><span class="tag">尿布</span><span class="tag">啤酒</span></td></tr>
+          <tr><td>5</td><td><span class="tag">面包</span><span class="tag">牛奶</span><span class="tag">鸡蛋</span><span class="tag">可乐</span></td></tr>
+          <tr><td>6</td><td><span class="tag">面包</span><span class="tag">啤酒</span><span class="tag">可乐</span></td></tr>
+        </table>
+      </div>
+
+      <!-- 控制区 -->
+      <div style="flex:1;min-width:280px;">
+        <div class="sup-control">
+          <span style="font-size:13px;">minSup = </span>
+          <input type="range" id="minSupSlider" min="1" max="5" value="3">
+          <span class="sup-val" id="minSupVal">3</span>
+          <span style="font-size:13px;">/ 6 (<span id="minSupPct">50</span>%)</span>
+        </div>
+
+        <div class="controls">
+          <button class="btn-prev" id="btnPrev" disabled>← 上一步</button>
+          <button class="btn-next" id="btnNext">下一步 →</button>
+          <button class="btn-reset" id="btnReset">⟲ 重置</button>
+        </div>
+
+        <div class="step-detail" id="stepDetail">
+          <strong>第 1 步：</strong>扫描数据库，统计每个 1-项集的支持度计数 σ。
+        </div>
+
+        <!-- 步骤展示 -->
+        <div id="stepVisual" style="margin-top:10px;">
+          <div class="step-row" id="step1">
+            <div class="step-box"><div class="step-title">C₁ 候选 1-项集</div><div class="items">
+              <span class="item-tag cand">牛奶: 4</span>
+              <span class="item-tag cand">面包: 5</span>
+              <span class="item-tag cand">鸡蛋: 3</span>
+              <span class="item-tag cand">尿布: 3</span>
+              <span class="item-tag cand">啤酒: 4</span>
+              <span class="item-tag cand">可乐: 3</span>
+            </div></div>
+            <div class="arrow">→</div>
+            <div class="step-box"><div class="step-title">✂️ 剪枝 (minSup=3)</div><div class="items">
+              <span class="item-tag freq">牛奶: 4 ✓</span>
+              <span class="item-tag freq">面包: 5 ✓</span>
+              <span class="item-tag freq">鸡蛋: 3 ✓</span>
+              <span class="item-tag freq">尿布: 3 ✓</span>
+              <span class="item-tag freq">啤酒: 4 ✓</span>
+              <span class="item-tag freq">可乐: 3 ✓</span>
+            </div></div>
+            <div class="arrow">→</div>
+            <div class="step-box" style="background:#d5f5e3;"><div class="step-title">L₁ 频繁 1-项集</div><div class="items">
+              <span class="item-tag freq">牛奶</span><span class="item-tag freq">面包</span>
+              <span class="item-tag freq">鸡蛋</span><span class="item-tag freq">尿布</span>
+              <span class="item-tag freq">啤酒</span><span class="item-tag freq">可乐</span>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 剪枝原理示例 -->
+  <div class="card full orange">
+    <h2><span>✂️</span> 剪枝原理图解 <span class="badge">非频繁 ← 超集必非频繁</span></h2>
+    <div class="prune-demo">
+      <div class="prune-tree">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">L₂（频繁 2-项集）</div>
+        <div class="node freq">{牛奶, 面包}</div>
+        <div class="node freq">{牛奶, 尿布}</div>
+        <div class="node freq">{面包, 尿布}</div>
+        <div class="node infreq">{面包, 鸡蛋} ✗</div>
+      </div>
+      <div style="font-size:28px;color:#e74c3c;">⇓ 剪枝</div>
+      <div class="prune-tree">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">C₃ 候选（剪枝后）</div>
+        <div class="node freq">{牛奶, 面包, 尿布}</div>
+        <div class="node pruned">{牛奶, 面包, 鸡蛋} ✂️</div>
+        <div class="node pruned">{牛奶, 尿布, 鸡蛋} ✂️</div>
+        <div class="node pruned">{面包, 尿布, 鸡蛋} ✂️</div>
+      </div>
+      <div style="text-align:left;font-size:13px;color:#555;line-height:1.8;max-width:260px;">
+        <strong>关键思想：</strong><br>
+        {面包, 鸡蛋} 非频繁 ⇒ <br>
+        所有包含 {面包, 鸡蛋} 的超集<br>
+        （如 {牛奶, 面包, 鸡蛋}）<br>
+        都<strong style="color:#e74c3c;">必定非频繁</strong>，直接剪掉！
+      </div>
+    </div>
+    <div class="desc" style="text-align:center;">
+      这就是 <strong>Apriori 剪枝</strong>的核心：<span style="color:#e74c3c;">非频繁项集的超集一定非频繁</span>，免去不必要的数据库扫描。
+    </div>
+  </div>
+
+  <!-- 完整流程对比 -->
+  <div class="card full">
+    <h2><span>🔄</span> Apriori vs FP-Growth <span class="badge" style="background:#8e44ad;">对比</span></h2>
+    <div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;">
+      <div style="flex:1;min-width:240px;text-align:center;">
+        <div style="font-weight:600;font-size:15px;color:#e67e22;margin-bottom:8px;">Apriori</div>
+        <div style="font-size:13px;color:#555;line-height:2;">
+          ✅ 基于频繁项集性质剪枝<br>
+          ✅ 逐层广度搜索<br>
+          ❌ 可能产生海量候选集<br>
+          ❌ 多次扫描数据库
+        </div>
+      </div>
+      <div style="flex:1;min-width:240px;text-align:center;">
+        <div style="font-weight:600;font-size:15px;color:#27ae60;margin-bottom:8px;">FP-Growth</div>
+        <div style="font-size:13px;color:#555;line-height:2;">
+          ✅ 用 FP 树压缩数据库<br>
+          ✅ 不产生候选项集<br>
+          ✅ 通常只需扫描 2 次<br>
+          ✅ 适合海量交易数据
+        </div>
+      </div>
+    </div>
+    <div class="desc" style="text-align:center;">
+      两者都解决关联规则挖掘<strong>第一阶段</strong>的问题：<strong>频繁项集生成</strong>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ========== Apriori 步进演示 ==========
+const transactions = [
+  ['牛奶', '面包', '鸡蛋'],
+  ['面包', '尿布', '啤酒', '鸡蛋'],
+  ['牛奶', '尿布', '啤酒', '可乐'],
+  ['面包', '牛奶', '尿布', '啤酒'],
+  ['面包', '牛奶', '鸡蛋', '可乐'],
+  ['面包', '啤酒', '可乐']
+];
+
+const allItems = ['牛奶', '面包', '鸡蛋', '尿布', '啤酒', '可乐'];
+
+function countSupport(itemset) {
+  return transactions.filter(t => itemset.every(item => t.includes(item))).length;
+}
+
+// 所有步骤数据 — 动态生成基于 minSup
+function generateSteps(minSup) {
+  // L1
+  const c1 = allItems.map(i => ({ items: [i], count: countSupport([i]) }));
+  const l1 = c1.filter(x => x.count >= minSup);
+  const pruned1 = c1.filter(x => x.count < minSup);
+
+  // C2 from L1
+  const l1items = l1.map(x => x.items[0]);
+  const c2 = [];
+  for (let i = 0; i < l1items.length; i++) {
+    for (let j = i + 1; j < l1items.length; j++) {
+      c2.push({ items: [l1items[i], l1items[j]] });
+    }
+  }
+  // count C2
+  c2.forEach(x => x.count = countSupport(x.items));
+  const l2 = c2.filter(x => x.count >= minSup);
+  const pruned2 = c2.filter(x => x.count < minSup);
+
+  // C3 from L2 — with Apriori pruning
+  const l2itemsets = l2.map(x => x.items);
+  const c3 = [];
+  for (let i = 0; i < l2itemsets.length; i++) {
+    for (let j = i + 1; j < l2itemsets.length; j++) {
+      const union = [...new Set([...l2itemsets[i], ...l2itemsets[j]])];
+      if (union.length === 3) {
+        // check all 2-subsets are in L2 (Apriori pruning)
+        const subsets = [
+          [union[0], union[1]],
+          [union[0], union[2]],
+          [union[1], union[2]]
+        ];
+        const allSubsetsFreq = subsets.every(s =>
+          l2itemsets.some(l2s => l2s.includes(s[0]) && l2s.includes(s[1]) && l2s.length === 2)
+        );
+        if (allSubsetsFreq && !c3.some(ex => JSON.stringify(ex.items) === JSON.stringify(union))) {
+          c3.push({ items: union });
+        }
+      }
+    }
+  }
+  c3.forEach(x => x.count = countSupport(x.items));
+  const l3 = c3.filter(x => x.count >= minSup);
+  const pruned3 = c3.filter(x => x.count < minSup);
+
+  return { c1, l1, pruned1, c2, l2, pruned2, c3, l3, pruned3 };
+}
+
+let currentStep = 0;
+const TOTAL_STEPS = 5;
+
+function renderStep(step, minSup) {
+  const data = generateSteps(minSup);
+  const vis = document.getElementById('stepVisual');
+  const detail = document.getElementById('stepDetail');
+
+  function tag(items, count, type) {
+    const cls = type === 'freq' ? 'item-tag freq' :
+               type === 'pruned' ? 'item-tag pruned' :
+               type === 'infreq' ? 'item-tag infreq' : 'item-tag cand';
+    return `<span class="${cls}">{${items.join(',')}}${count !== undefined ? ': ' + count : ''}</span>`;
+  }
+
+  let html = '';
+  if (step === 0) {
+    detail.innerHTML = `<strong>第 1 步：</strong>扫描数据库，统计每个 <strong>1-项集</strong> 的支持度计数 σ，生成候选集 <strong>C₁</strong>。`;
+    html = `<div class="step-row"><div class="step-box"><div class="step-title">C₁ 候选 1-项集</div><div class="items">${
+      data.c1.map(x => tag(x.items, x.count, 'cand')).join('')
+    }</div></div><div class="arrow">→</div><div class="step-box"><div class="step-title">✂️ 剪枝 (minSup=${minSup})</div><div class="items">${
+      data.l1.map(x => tag(x.items, x.count, 'freq')).join('') +
+      data.pruned1.map(x => tag(x.items, x.count, 'pruned')).join('')
+    }</div></div><div class="arrow">→</div><div class="step-box" style="background:#d5f5e3;"><div class="step-title">L₁ 频繁 1-项集</div><div class="items">${
+      data.l1.map(x => tag(x.items, null, 'freq')).join('')
+    }</div></div></div>`;
+  } else if (step === 1) {
+    detail.innerHTML = `<strong>第 2 步：</strong>L₁ 自连接生成候选 <strong>C₂</strong>，扫描数据库统计支持度，保留 σ ≥ ${minSup} 的项集。`;
+    const items = data.c2.map(x => tag(x.items, x.count, x.count >= minSup ? 'freq' : 'pruned'));
+    html = `<div class="step-row"><div class="step-box"><div class="step-title">C₂ 候选 2-项集</div><div class="items">${
+      data.c2.map(x => tag(x.items, x.count, 'cand')).join('')
+    }</div></div><div class="arrow">→</div><div class="step-box"><div class="step-title">✂️ 剪枝</div><div class="items">${items}</div></div><div class="arrow">→</div><div class="step-box" style="background:#d5f5e3;"><div class="step-title">L₂ 频繁 2-项集</div><div class="items">${
+      data.l2.map(x => tag(x.items, null, 'freq')).join('')
+    }</div></div></div>`;
+  } else if (step === 2) {
+    detail.innerHTML = `<strong>第 3 步：</strong>L₂ 自连接 → 候选 <strong>C₃</strong>，用 <span class="hl">Apriori 剪枝</span> 删除包含非频繁子集的项集，再扫描计数。`;
+    const c3labels = data.c3.map(x => {
+      const t = x.count >= minSup ? 'freq' : 'pruned';
+      return tag(x.items, x.count, t);
+    });
+    // Also show items that were pruned by Apriori property (not even counted)
+    const aprioriPruned = [];
+    if (data.l2.length >= 2) {
+      const l2s = data.l2.map(x => x.items);
+      for (let i = 0; i < data.l2.length; i++) {
+        for (let j = i + 1; j < data.l2.length; j++) {
+          const union = [...new Set([...l2s[i], ...l2s[j]])];
+          if (union.length === 3) {
+            const subsets = [[union[0], union[1]], [union[0], union[2]], [union[1], union[2]]];
+            const allOk = subsets.every(s =>
+              l2s.some(l => l.includes(s[0]) && l.includes(s[1]) && l.length === 2)
+            );
+            if (!allOk && !aprioriPruned.some(e => JSON.stringify(e) === JSON.stringify(union))) {
+              aprioriPruned.push(union);
+            }
+          }
+        }
+      }
+    }
+    html = `<div class="step-row"><div class="step-box"><div class="step-title">L₂ → 自连接</div><div class="items">${
+      data.l2.map(x => tag(x.items, null, 'freq')).join('')
+    }</div></div><div class="arrow">→</div><div class="step-box"><div class="step-title">C₃（剪枝后）</div><div class="items">${
+      c3labels.length ? c3labels.join('') : '(无候选项)'
+    }${
+      aprioriPruned.length ? '<br><span style="font-size:11px;color:#922b21;">✂️ Apriori剪枝删除: ' + aprioriPruned.map(p => `{${p.join(',')}}`).join(', ') + '</span>' : ''
+    }</div></div><div class="arrow">→</div><div class="step-box" style="background:#d5f5e3;"><div class="step-title">L₃ 频繁 3-项集</div><div class="items">${
+      data.l3.length ? data.l3.map(x => tag(x.items, null, 'freq')).join('') : '(无)'
+    }</div></div></div>`;
+  } else if (step === 3) {
+    detail.innerHTML = `<strong>第 4 步：</strong>检查是否能继续生成 <strong>C₄</strong>。L₃ 中所有项集无法再合并出 4-项集，<span class="hl">迭代结束</span>。`;
+    const allFreq = [...data.l1, ...data.l2, ...data.l3];
+    html = `<div style="text-align:center;padding:16px;">
+      <div style="font-size:16px;font-weight:600;margin-bottom:10px;">✅ 所有频繁项集</div>
+      <div class="items" style="justify-content:center;">${
+        allFreq.map(x => tag(x.items, null, 'freq')).join('')
+      }</div>
+      ${data.l3.length === 0 ? '<div style="margin-top:8px;font-size:13px;color:#888;">L₃ 为空，无法生成 C₄，算法终止。</div>' : '<div style="margin-top:8px;font-size:13px;color:#888;">L₃ 无法生成 4-项集，算法终止。</div>'}
+    </div>`;
+  } else if (step === 4) {
+    detail.innerHTML = `<strong>第 5 步：</strong>从频繁项集 <span class="hl-green">生成关联规则</span>。对每个频繁项集，枚举所有非空子集作为前件，计算置信度，保留 ≥ minConf 的规则。`;
+    html = `<div style="padding:10px;text-align:center;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:10px;">两阶段框架总结</div>
+      <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
+        <div style="background:#e8f8f0;padding:14px;border-radius:10px;flex:1;min-width:180px;">
+          <div style="font-size:13px;font-weight:600;color:#27ae60;">阶段一</div>
+          <div style="font-size:13px;margin-top:4px;">产生<strong>频繁项集</strong><br>（Apriori / FP-Growth）</div>
+        </div>
+        <div style="font-size:28px;color:#bbb;align-self:center;">→</div>
+        <div style="background:#fef9e7;padding:14px;border-radius:10px;flex:1;min-width:180px;">
+          <div style="font-size:13px;font-weight:600;color:#e67e22;">阶段二</div>
+          <div style="font-size:13px;margin-top:4px;">生成<strong>强关联规则</strong><br>（满足 minConf）</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  vis.innerHTML = html;
+}
+
+function updateStep(minSup) {
+  renderStep(currentStep, minSup);
+  document.getElementById('btnPrev').disabled = currentStep === 0;
+  document.getElementById('btnNext').disabled = currentStep >= TOTAL_STEPS - 1;
+}
+
+// 控件
+const slider = document.getElementById('minSupSlider');
+slider.addEventListener('input', function() {
+  const v = parseInt(this.value);
+  document.getElementById('minSupVal').textContent = v;
+  document.getElementById('minSupPct').textContent = Math.round(v / 6 * 100);
+  currentStep = 0;
+  updateStep(v);
+});
+
+document.getElementById('btnNext').addEventListener('click', function() {
+  if (currentStep < TOTAL_STEPS - 1) {
+    currentStep++;
+    updateStep(parseInt(slider.value));
+  }
+});
+
+document.getElementById('btnPrev').addEventListener('click', function() {
+  if (currentStep > 0) {
+    currentStep--;
+    updateStep(parseInt(slider.value));
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', function() {
+  currentStep = 0;
+  updateStep(parseInt(slider.value));
+});
+
+// 初始渲染
+updateStep(3);
+</script>
+
+</body>
+</html>
