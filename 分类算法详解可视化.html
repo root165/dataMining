@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分类算法详解 · KNN · 逻辑回归 · SVM · 神经网络 · 正则化</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; padding: 30px; color: #333; }
+  h1 { text-align: center; font-size: 28px; margin-bottom: 6px; color: #1a1a2e; }
+  .subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1200px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .card h2 { font-size: 18px; margin-bottom: 14px; padding-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .badge { font-size: 12px; color: #fff; padding: 2px 10px; border-radius: 12px; }
+  .card.full { grid-column: 1 / -1; }
+  .desc { font-size: 13px; color: #555; line-height: 1.8; margin-top: 10px; }
+  .desc strong { color: #2c3e50; }
+  .desc .hl { color: #e74c3c; font-weight: 600; }
+  .desc .hl-g { color: #27ae60; font-weight: 600; }
+
+  .flex-center { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 10px 0; }
+  .formula-box { background: #f8f9fa; border-radius: 8px; padding: 12px; margin: 10px 0; font-family: 'Courier New', monospace; font-size: 14px; text-align: center; }
+  .chart-wrap { position: relative; height: 220px; margin: 8px 0; }
+  .chart-wrap-sm { position: relative; height: 180px; margin: 8px 0; }
+
+  .step-box { background: #f8f9fa; border-radius: 10px; padding: 14px; margin: 8px 0; font-size: 13px; line-height: 1.7; }
+  .step-box .step-title { font-weight: 600; color: #2c3e50; margin-bottom: 4px; }
+
+  .arch-flow { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+  .arch-flow .block { padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; text-align: center; min-width: 70px; }
+  .arch-flow .arrow { font-size: 18px; color: #bbb; }
+
+  .reg-grid { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .reg-card { flex: 1; min-width: 180px; padding: 14px; border-radius: 10px; text-align: center; }
+  .reg-card .title { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .reg-card .formula { font-family: monospace; font-size: 13px; margin: 4px 0; }
+
+  .svm-viz { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+  .svm-point { display: inline-block; width: 18px; height: 18px; border-radius: 50%; margin: 2px; }
+  .svm-point.pos { background: #4a90d9; }
+  .svm-point.neg { background: #e74c3c; }
+  .svm-point.sv { border: 3px solid #f1c40f; }
+
+  .compare-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  .compare-table th { background: #2c3e50; color: #fff; padding: 8px 12px; text-align: left; }
+  .compare-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+  .compare-table tr:nth-type(even) { background: #f8f9fa; }
+
+  .nn-layer { display: flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+  .nn-layer .layer { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .nn-layer .neuron { width: 28px; height: 28px; border-radius: 50%; background: #4a90d9; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+  .nn-layer .neuron.input { background: #8e44ad; }
+  .nn-layer .neuron.hidden { background: #e67e22; }
+  .nn-layer .neuron.output { background: #27ae60; }
+  .nn-layer .conn { font-size: 16px; color: #bbb; }
+  .nn-layer .lbl { font-size: 10px; color: #888; margin-top: 2px; }
+
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>分类算法详解</h1>
+<p class="subtitle">KNN · 逻辑回归 · SVM · 神经网络 · 正则化</p>
+
+<div class="grid">
+
+  <!-- 1. KNN -->
+  <div class="card full">
+    <h2 style="border-bottom:3px solid #e67e22;"><span>📍</span> KNN <span class="badge" style="background:#e67e22;">k-近邻</span></h2>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div class="step-box"><div class="step-title">训练阶段</div>主要<strong>保存全部训练样本</strong>，不建模型 → <span class="hl">惰性学习</span></div>
+        <div class="step-box"><div class="step-title">预测阶段</div>
+          1. 计算未知样本与<strong>所有</strong>训练样本的距离（如欧氏距离）<br>
+          2. 选出距离最近的 <strong>k</strong> 个邻居<br>
+          3. 这 k 个邻居进行<strong>多数投票</strong>，得票最多的类别为预测结果
+        </div>
+        <div class="desc">
+          <strong>关键问题：</strong><br>
+          ⚠ 对<strong>量纲敏感</strong>——"收入(万)"和"年龄(岁)"数值差异大，年龄的变化会被淹没。<br>
+          ✅ 解决方法：<span class="hl-g">标准化</span>（Z-score）或归一化（Min-Max）<br>
+          ⚠ k 值选择：k 太小 → 过拟合（噪声敏感）；k 太大 → 欠拟合（类别边界模糊）
+        </div>
+      </div>
+      <div style="flex:1;min-width:280px;">
+        <div style="font-weight:600;font-size:14px;text-align:center;margin-bottom:4px;">KNN 分类示意（k=3）</div>
+        <div class="chart-wrap"><canvas id="knnChart"></canvas></div>
+        <div style="text-align:center;font-size:12px;color:#888;">★ 未知点 · 3 个最近邻：2 个蓝 / 1 个红 → 预测为蓝色类</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 逻辑回归 -->
+  <div class="card full">
+    <h2 style="border-bottom:3px solid #8e44ad;"><span>📈</span> 逻辑回归 <span class="badge" style="background:#8e44ad;">Logistic Regression</span></h2>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div class="step-box">
+          <span class="hl">名字带"回归"，但主要用于分类！</span>
+        </div>
+        <div class="step-box"><div class="step-title">核心思想</div>
+          在线性回归的基础上套一层 <strong>Sigmoid 函数</strong>，将输出压缩到 (0,1) 区间，<br>表示样本属于正类的<strong>概率</strong>。
+        </div>
+        <div class="formula-box">
+          P(y=1|x) = σ(w·x + b) = 1 / (1 + e<sup>-(w·x + b)</sup>)
+        </div>
+        <div class="desc">
+          <strong>决策规则：</strong>P ≥ 0.5 → 正类；P &lt; 0.5 → 负类<br>
+          <strong>损失函数：</strong>交叉熵损失（并非 MSE）<br>
+          <strong>输出：</strong>可解释为概率（如：贷款违约概率 85%）
+        </div>
+      </div>
+      <div style="flex:1;min-width:280px;">
+        <div style="font-weight:600;font-size:14px;text-align:center;margin-bottom:4px;">Sigmoid 函数曲线</div>
+        <div class="chart-wrap-sm"><canvas id="sigmoidChart"></canvas></div>
+        <div style="text-align:center;font-size:12px;color:#888;">z &lt; 0 → P &lt; 0.5（负类）；z &gt; 0 → P &gt; 0.5（正类）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. SVM -->
+  <div class="card full">
+    <h2 style="border-bottom:3px solid #4a90d9;"><span>🔲</span> SVM <span class="badge" style="background:#4a90d9;">支持向量机</span></h2>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div class="step-box"><div class="step-title">核心思想</div>
+          寻找一个<strong>最大间隔超平面</strong>，使两类样本被分开的同时，距离超平面最近的样本点（<span class="hl">支持向量</span>）到超平面的距离最大。
+        </div>
+        <div class="step-box"><div class="step-title">支持向量（Support Vectors）</div>
+          离超平面<strong>最近</strong>的那几个训练样本，<span class="hl">唯一决定分类边界</span>。<br>
+          其他远离边界的样本不影响分类面。
+        </div>
+        <div class="step-box"><div class="step-title">核函数（Kernel Trick）</div>
+          将数据映射到<strong>高维空间</strong>，使原本<strong>线性不可分</strong>的数据变得线性可分。<br>
+          常见核函数：线性核、多项式核、<strong>RBF（高斯）核</strong><br>
+          <span class="hl-g">主要作用：处理非线性问题</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:280px;">
+        <div style="font-weight:600;font-size:14px;text-align:center;margin-bottom:4px;">SVM 最大间隔超平面</div>
+        <div class="chart-wrap"><canvas id="svmChart"></canvas></div>
+        <div style="text-align:center;font-size:12px;color:#888;">实线 = 决策边界 · 虚线 = 间隔边界 · ⭕ 上的点 = 支持向量</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 神经网络 -->
+  <div class="card full">
+    <h2 style="border-bottom:3px solid #1a5276;"><span>🧠</span> 神经网络 <span class="badge" style="background:#1a5276;">Neural Network</span></h2>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div class="step-box"><div class="step-title">网络结构</div>
+          <div class="nn-layer">
+            <div class="layer">
+              <div class="neuron input">x₁</div>
+              <div class="neuron input">x₂</div>
+              <div class="neuron input">x₃</div>
+              <div class="lbl">输入层</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="layer">
+              <div class="neuron hidden">h₁</div>
+              <div class="neuron hidden">h₂</div>
+              <div class="neuron hidden">h₃</div>
+              <div class="neuron hidden">h₄</div>
+              <div class="lbl">隐藏层</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="layer">
+              <div class="neuron output">ŷ</div>
+              <div class="lbl">输出层</div>
+            </div>
+          </div>
+        </div>
+        <div class="step-box"><div class="step-title">四步训练流程</div>
+          <div class="arch-flow">
+            <div class="block" style="background:#d5f5e3;color:#1e8449;">前向传播<br><small>输入→逐层计算→预测</small></div>
+            <div class="arrow">→</div>
+            <div class="block" style="background:#fef9e7;color:#7d6608;">损失函数<br><small>度量预测误差</small></div>
+            <div class="arrow">→</div>
+            <div class="block" style="background:#fadbd8;color:#922b21;">反向传播<br><small>计算梯度 ∂L/∂w</small></div>
+            <div class="arrow">→</div>
+            <div class="block" style="background:#eaf2fb;color:#1a5276;">优化器更新<br><small>w ← w - η·∂L/∂w</small></div>
+          </div>
+        </div>
+        <div class="desc">
+          <strong>前向传播：</strong>ŷ = σ(W₂·σ(W₁·x + b₁) + b₂)<br>
+          <strong>损失函数：</strong>交叉熵（分类）/ MSE（回归）<br>
+          <strong>反向传播：</strong>链式法则求损失对各层权重的梯度<br>
+          <strong>优化器：</strong>梯度下降（SGD、Adam 等）更新参数
+        </div>
+      </div>
+      <div style="flex:1;min-width:280px;">
+        <div style="font-weight:600;font-size:14px;text-align:center;margin-bottom:4px;">前向传播 = 预测 · 反向传播 = 学习</div>
+        <div class="step-box" style="background:#fef9e7;">
+          <div style="font-weight:600;">梯度下降直观理解</div>
+          <div style="font-size:13px;margin-top:4px;">
+            想象你在山顶（误差很大），要走到山谷（误差最小）。<br>
+            <strong>梯度</strong> = 当前最陡的下山方向<br>
+            <strong>学习率 η</strong> = 每一步迈多大<br>
+            走得太小（η 太小）→ 太慢；走得太快（η 太大）→ 跳过山谷
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 正则化 -->
+  <div class="card full">
+    <h2 style="border-bottom:3px solid #e74c3c;"><span>🔒</span> 正则化 <span class="badge" style="background:#e74c3c;">Regularization</span></h2>
+    <div class="desc" style="text-align:center;font-size:14px;margin-bottom:10px;">
+      <strong>目的：</strong>限制模型复杂度，<span class="hl">缓解过拟合</span>
+    </div>
+    <div class="reg-grid">
+      <div class="reg-card" style="background:#fef9e7;border:2px solid #f1c40f;">
+        <div class="title" style="color:#e67e22;">L1 正则化（Lasso）</div>
+        <div class="formula">Loss + λ Σ|w<sub>i</sub>|</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">
+          ✅ 使部分权重变为 <strong>0</strong><br>
+          ✅ 自带<strong>特征选择</strong><br>
+          ✅ 产生稀疏模型
+        </div>
+      </div>
+      <div class="reg-card" style="background:#e8f8f0;border:2px solid #27ae60;">
+        <div class="title" style="color:#27ae60;">L2 正则化（Ridge）</div>
+        <div class="formula">Loss + λ Σw<sub>i</sub><sup>2</sup></div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">
+          ✅ 使权重<strong>缩小但不为零</strong><br>
+          ✅ 对异常值更稳健<br>
+          ✅ <span class="hl-g">岭回归使用 L2</span>
+        </div>
+      </div>
+      <div class="reg-card" style="background:#f0e6f6;border:2px solid #8e44ad;">
+        <div class="title" style="color:#8e44ad;">弹性网络（ElasticNet）</div>
+        <div class="formula">L1 + L2 混合</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">
+          ✅ 结合两者优点<br>
+          ✅ 适合高相关特征
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:10px;">
+      <div style="flex:1;min-width:200px;padding:12px;background:#f8f9fa;border-radius:10px;">
+        <div style="font-weight:600;font-size:13px;">过拟合表现</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">
+          训练误差很低甚至为 0<br>
+          但测试/检验误差很高<br>
+          模型记住了噪声而非规律
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px;padding:12px;background:#f8f9fa;border-radius:10px;">
+        <div style="font-weight:600;font-size:13px;">处理过拟合的方法</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">
+          ① 增加训练数据<br>
+          ② <span class="hl">正则化</span>（L1/L2）<br>
+          ③ <span class="hl">剪枝</span>（决策树）<br>
+          ④ 交叉验证<br>
+          ⑤ 早停（Early Stopping）<br>
+          ⑥ 降低模型复杂度
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 总结对比 -->
+  <div class="card full">
+    <h2 style="border-bottom:3px solid #2c3e50;"><span>📋</span> 五大算法横向对比</h2>
+    <table class="compare-table">
+      <tr><th>算法</th><th>核心原理</th><th>优点</th><th>缺点</th><th>关键注意</th></tr>
+      <tr>
+        <td><strong>KNN</strong></td>
+        <td>距离 + 多数投票</td>
+        <td>简单、无训练</td>
+        <td>预测慢、维度灾难</td>
+        <td>需标准化</td>
+      </tr>
+      <tr>
+        <td><strong>逻辑回归</strong></td>
+        <td>Sigmoid 输出概率</td>
+        <td>可解释性强</td>
+        <td>只能线性决策边界</td>
+        <td>用于分类！</td>
+      </tr>
+      <tr>
+        <td><strong>SVM</strong></td>
+        <td>最大间隔超平面</td>
+        <td>核函数处理非线性</td>
+        <td>大数据集训练慢</td>
+        <td>支持向量决定边界</td>
+      </tr>
+      <tr>
+        <td><strong>神经网络</strong></td>
+        <td>多层 + 反向传播</td>
+        <td>拟合能力强</td>
+        <td>需要大量数据</td>
+        <td>小心过拟合</td>
+      </tr>
+      <tr>
+        <td><strong>正则化</strong></td>
+        <td>在损失中加惩罚项</td>
+        <td>防止过拟合</td>
+        <td>需调 λ 参数</td>
+        <td>L1 做特征选择</td>
+      </tr>
+    </table>
+  </div>
+
+</div>
+
+<script>
+// ========== 1. KNN 散点图 ==========
+const knnCtx = document.getElementById('knnChart').getContext('2d');
+const knnData = {
+  datasets: [
+    {
+      label: '类 A',
+      data: Array.from({length:12}, () => ({ x: Math.random()*8+1, y: Math.random()*8+1 })),
+      backgroundColor: 'rgba(74, 144, 217, 0.7)',
+      pointRadius: 6,
+    },
+    {
+      label: '类 B',
+      data: Array.from({length:12}, () => ({ x: Math.random()*8+5, y: Math.random()*8+5 })),
+      backgroundColor: 'rgba(231, 76, 60, 0.7)',
+      pointRadius: 6,
+    },
+    {
+      label: '未知点',
+      data: [{ x: 6, y: 4 }],
+      backgroundColor: 'rgba(241, 196, 15, 1)',
+      pointRadius: 10,
+      pointStyle: 'star',
+    }
+  ]
+};
+new Chart(knnCtx, {
+  type: 'scatter',
+  data: knnData,
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 10, padding: 12 } } },
+    scales: {
+      x: { min: 0, max: 10, grid: { color: 'rgba(0,0,0,0.06)' }, title: { display: true, text: '特征 X₁ (已标准化)', font: {size:10} } },
+      y: { min: 0, max: 10, grid: { color: 'rgba(0,0,0,0.06)' }, title: { display: true, text: '特征 X₂ (已标准化)', font: {size:10} } }
+    }
+  }
+});
+
+// ========== 2. Sigmoid 曲线 ==========
+const sigCtx = document.getElementById('sigmoidChart').getContext('2d');
+const sigData = Array.from({length:100}, (_,i) => {
+  const z = (i/99)*12 - 6;
+  return { x: z, y: 1 / (1 + Math.exp(-z)) };
+});
+new Chart(sigCtx, {
+  type: 'line',
+  data: {
+    datasets: [{
+      data: sigData,
+      borderColor: '#8e44ad',
+      backgroundColor: 'rgba(142,68,173,0.1)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      annotation: undefined
+    },
+    scales: {
+      x: { min: -6, max: 6, title: { display: true, text: 'z = w·x + b', font: {size:10} } },
+      y: { min: 0, max: 1, title: { display: true, text: 'P(y=1|x)', font: {size:10} } }
+    }
+  }
+});
+
+// ========== 3. SVM 示意图 ==========
+const svmCtx = document.getElementById('svmChart').getContext('2d');
+const svmPos = Array.from({length:10}, () => ({ x: Math.random()*3+3, y: Math.random()*3+3 }));
+const svmNeg = Array.from({length:10}, () => ({ x: Math.random()*3+1, y: Math.random()*3+1 }));
+// Add support vectors at boundary
+svmPos.push({ x: 4.0, y: 3.8 }, { x: 4.2, y: 4.5 }, { x: 4.8, y: 4.0 });
+svmNeg.push({ x: 3.0, y: 2.8 }, { x: 2.8, y: 3.2 }, { x: 3.5, y: 2.5 });
+
+new Chart(svmCtx, {
+  type: 'scatter',
+  data: {
+    datasets: [
+      {
+        label: '正类 (+)',
+        data: svmPos,
+        backgroundColor: 'rgba(74, 144, 217, 0.7)',
+        pointRadius: 8,
+      },
+      {
+        label: '负类 (-)',
+        data: svmNeg,
+        backgroundColor: 'rgba(231, 76, 60, 0.7)',
+        pointRadius: 8,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 10, padding: 12 } },
+    },
+    scales: {
+      x: { min: 0, max: 6, grid: { color: 'rgba(0,0,0,0.06)' } },
+      y: { min: 0, max: 6, grid: { color: 'rgba(0,0,0,0.06)' } }
+    }
+  }
+});
+
+// Draw decision boundary and margin lines via plugin
+const svmPlugin = {
+  id: 'svmLines',
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    const xAxis = chart.scales.x;
+    const yAxis = chart.scales.y;
+    const w = chart.width;
+    const h = chart.height;
+
+    // Decision boundary: y = -x + 4.5  (diagonal separating line)
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(xAxis.getPixelForValue(1.5), yAxis.getPixelForValue(3.0));
+    ctx.lineTo(xAxis.getPixelForValue(5.0), yAxis.getPixelForValue(-0.5));
+    ctx.stroke();
+
+    // Margin boundaries (dashed)
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = '#e67e22';
+    ctx.lineWidth = 1.5;
+    // Upper margin
+    ctx.beginPath();
+    ctx.moveTo(xAxis.getPixelForValue(1.5), yAxis.getPixelForValue(2.0));
+    ctx.lineTo(xAxis.getPixelForValue(5.0), yAxis.getPixelForValue(-1.5));
+    ctx.stroke();
+    // Lower margin
+    ctx.beginPath();
+    ctx.moveTo(xAxis.getPixelForValue(1.5), yAxis.getPixelForValue(4.0));
+    ctx.lineTo(xAxis.getPixelForValue(5.0), yAxis.getPixelForValue(0.5));
+    ctx.stroke();
+
+    ctx.restore();
+  }
+};
+
+new Chart(svmCtx, {
+  type: 'scatter',
+  data: {
+    datasets: [
+      {
+        label: '正类 (+)',
+        data: svmPos,
+        backgroundColor: 'rgba(74, 144, 217, 0.7)',
+        pointRadius: 8,
+        pointBorderColor: (ctx) => {
+          const d = ctx.dataIndex;
+          return d >= 10 ? '#f1c40f' : 'transparent';
+        },
+        pointBorderWidth: (ctx) => ctx.dataIndex >= 10 ? 3 : 0,
+      },
+      {
+        label: '负类 (-)',
+        data: svmNeg,
+        backgroundColor: 'rgba(231, 76, 60, 0.7)',
+        pointRadius: 8,
+        pointBorderColor: (ctx) => ctx.dataIndex >= 10 ? '#f1c40f' : 'transparent',
+        pointBorderWidth: (ctx) => ctx.dataIndex >= 10 ? 3 : 0,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 10, padding: 12 } },
+    },
+    scales: {
+      x: { min: 0, max: 6, grid: { color: 'rgba(0,0,0,0.06)' } },
+      y: { min: 0, max: 6, grid: { color: 'rgba(0,0,0,0.06)' } }
+    }
+  },
+  plugins: [svmPlugin]
+});
+</script>
+
+</body>
+</html>

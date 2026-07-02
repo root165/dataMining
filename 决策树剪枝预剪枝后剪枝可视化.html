@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>决策树剪枝 · 预剪枝 vs 后剪枝</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; padding: 30px; color: #333; }
+  h1 { text-align: center; font-size: 28px; margin-bottom: 6px; color: #1a1a2e; }
+  .subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1200px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .card h2 { font-size: 18px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 3px solid #4a90d9; display: flex; align-items: center; gap: 8px; }
+  .card h2 .badge { font-size: 12px; background: #4a90d9; color: #fff; padding: 2px 10px; border-radius: 12px; }
+  .card.full { grid-column: 1 / -1; }
+
+  .desc { font-size: 13px; color: #555; line-height: 1.7; margin-top: 10px; }
+  .desc strong { color: #2c3e50; }
+
+  .controls { display: flex; gap: 10px; justify-content: center; margin: 14px 0; flex-wrap: wrap; }
+  .controls button { padding: 8px 22px; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+  .controls button:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .btn-prev { background: #ecf0f1; color: #555; }
+  .btn-next { background: #8e44ad; color: #fff; }
+  .btn-reset { background: #e74c3c; color: #fff; }
+  .controls button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+  .step-detail { background: #f8f9fa; border-radius: 10px; padding: 14px; margin-top: 10px; font-size: 13px; line-height: 1.7; }
+  .step-detail strong { color: #2c3e50; }
+  .hl { color: #e74c3c; font-weight: 600; }
+  .hl-g { color: #27ae60; font-weight: 600; }
+
+  .tree-wrap { display:flex; justify-content:center; margin:10px 0; overflow-x:auto; }
+  .tree-container { display:flex; flex-direction:column; align-items:center; }
+  .tree-node { display:inline-flex; flex-direction:column; align-items:center; margin:0 8px; position:relative; }
+  .tree-node .box { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; text-align:center; border:2px solid; min-width:60px; background:#fff; }
+  .tree-node .box.internal { border-color:#4a90d9; background:#eaf2fb; color:#1a5276; }
+  .tree-node .box.leaf-y { border-color:#27ae60; background:#d5f5e3; color:#1e8449; }
+  .tree-node .box.leaf-n { border-color:#e74c3c; background:#fadbd8; color:#922b21; }
+  .tree-node .box.pruned { border-color:#999; background:#eee; color:#999; text-decoration:line-through; }
+  .tree-node .box.stopped { border-color:#f1c40f; background:#fef9e7; color:#7d6608; }
+  .tree-node .box .sub { font-weight:400; font-size:10px; color:#888; display:block; margin-top:2px; }
+  .tree-children { display:flex; gap:30px; margin-top:10px; position:relative; }
+  .tree-edge { font-size:10px; color:#999; text-align:center; margin-bottom:3px; }
+  .tree-branch { display:flex; flex-direction:column; align-items:center; }
+
+  .prune-badge { display:inline-block; padding:2px 8px; border-radius:8px; font-size:11px; font-weight:600; margin-left:6px; }
+  .prune-badge.pre { background:#fef9e7; color:#7d6608; border:1px solid #f1c40f; }
+  .prune-badge.post { background:#e8f8f0; color:#1e8449; border:1px solid #27ae60; }
+
+  .compare-layout { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; }
+  .compare-side { flex:1; min-width:300px; text-align:center; }
+  .compare-side .side-title { font-size:16px; font-weight:700; margin-bottom:8px; padding:8px; border-radius:8px; }
+
+  .legend { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:10px 0; font-size:12px; }
+  .legend .dot { display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:middle; margin-right:4px; border:1px solid #ccc; }
+
+  .metric-bar { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin:10px 0; }
+  .metric { text-align:center; padding:10px 20px; border-radius:10px; min-width:120px; }
+  .metric .val { font-size:20px; font-weight:700; }
+  .metric .lbl { font-size:12px; color:#888; }
+
+  .process-steps { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:10px 0; }
+  .process-step { padding:8px 16px; border-radius:8px; font-size:12px; text-align:center; min-width:90px; }
+  .process-step .num { display:inline-block; width:22px; height:22px; line-height:22px; border-radius:50%; color:#fff; font-weight:600; font-size:11px; margin-bottom:4px; }
+
+  @media (max-width:800px) { .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<h1>决策树剪枝 · 预剪枝 vs 后剪枝</h1>
+<p class="subtitle">Pre-Pruning · Post-Pruning · Overfitting · Generalization</p>
+
+<div class="grid">
+
+  <!-- 概念总览 -->
+  <div class="card full">
+    <h2><span>✂️</span> 剪枝目的 <span class="badge">防止过拟合</span></h2>
+    <div class="desc" style="text-align:center;font-size:14px;">
+      <strong>过拟合表现：</strong>训练误差很低甚至为 0，但测试/检验误差很高<br>
+      <strong>剪枝目的：</strong>提高模型在<strong>测试数据</strong>上的泛化能力（Generalization）
+    </div>
+    <div class="metric-bar">
+      <div class="metric" style="background:#fadbd8;">
+        <div class="lbl">过拟合</div>
+        <div class="val" style="color:#e74c3c;">训练 ✓ 测试 ✗</div>
+        <div style="font-size:11px;color:#888;">训练误差低，测试误差高</div>
+      </div>
+      <div class="metric" style="background:#d5f5e3;">
+        <div class="lbl">泛化好</div>
+        <div class="val" style="color:#27ae60;">训练 ✓ 测试 ✓</div>
+        <div style="font-size:11px;color:#888;">两者误差都低</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 对比总览 -->
+  <div class="card full">
+    <h2><span>⚡</span> 预剪枝 vs 后剪枝 对比 <span class="badge">核心区别</span></h2>
+    <div class="compare-layout">
+      <div class="compare-side">
+        <div class="side-title" style="background:#fef9e7;color:#7d6608;">预剪枝（Pre-Pruning）</div>
+        <div class="process-steps">
+          <div class="process-step" style="background:#d5f5e3;"><div class="num" style="background:#27ae60;">1</div>树生长</div>
+          <div class="process-step" style="background:#fef9e7;"><div class="num" style="background:#f1c40f;">2</div><strong style="color:#e67e22;">提前停止</strong></div>
+        </div>
+        <div style="font-size:13px;color:#555;line-height:1.8;margin-top:8px;">
+          ✅ <strong>速度快</strong>，无需生成完整树<br>
+          ❌ 可能<strong>剪枝过早</strong>，错过后续好划分<br>
+          ⚠ 难以判断"何时该停"
+        </div>
+      </div>
+      <div class="compare-side">
+        <div class="side-title" style="background:#e8f8f0;color:#1e8449;">后剪枝（Post-Pruning）</div>
+        <div class="process-steps">
+          <div class="process-step" style="background:#d5f5e3;"><div class="num" style="background:#27ae60;">1</div>完整生长</div>
+          <div class="process-step" style="background:#fef9e7;"><div class="num" style="background:#f1c40f;">2</div>自底向上评估</div>
+          <div class="process-step" style="background:#d5f5e3;"><div class="num" style="background:#27ae60;">3</div>修剪分支</div>
+        </div>
+        <div style="font-size:13px;color:#555;line-height:1.8;margin-top:8px;">
+          ✅ <strong>效果较好</strong>，能看到全貌再决策<br>
+          ❌ <strong>计算量较大</strong>，需要先生成完整树<br>
+          ✅ 更常见的剪枝策略
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 逐步演示 -->
+  <div class="card full">
+    <h2>
+      <span>👣</span> 剪枝逐步演示
+      <span class="badge" id="modeBadge" style="background:#f1c40f;color:#7d6608;">预剪枝</span>
+    </h2>
+
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px;">
+      <button id="modePre" class="controls" style="padding:8px 24px;border:none;border-radius:20px;font-weight:600;cursor:pointer;background:#fef9e7;color:#7d6608;border:2px solid #f1c40f;">预剪枝模式</button>
+      <button id="modePost" style="padding:8px 24px;border:none;border-radius:20px;font-weight:600;cursor:pointer;background:#e8f8f0;color:#1e8449;border:2px solid #27ae60;">后剪枝模式</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn-prev" id="btnPrev" disabled>← 上一步</button>
+      <button class="btn-next" id="btnNext">下一步 →</button>
+      <button class="btn-reset" id="btnReset">⟲ 重置</button>
+    </div>
+
+    <div class="step-detail" id="stepDetail">
+      <strong>初始状态：</strong>下面是一个完整训练出的决策树，存在过拟合风险。
+    </div>
+
+    <div id="stepVisual" style="margin-top:10px;min-height:300px;"></div>
+  </div>
+
+  <!-- 总结 -->
+  <div class="card full">
+    <h2><span>📋</span> 总结 <span class="badge">记忆要点</span></h2>
+    <div class="compare-layout">
+      <div style="flex:1;min-width:200px;background:#f8f9fa;border-radius:10px;padding:14px;">
+        <div style="font-weight:600;color:#e67e22;">预剪枝</div>
+        <div style="font-size:13px;line-height:1.8;margin-top:4px;">
+          树生长过程中提前停止<br>
+          速度快但可能剪枝过早<br>
+          适合对速度要求高的场景
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px;background:#f8f9fa;border-radius:10px;padding:14px;">
+        <div style="font-weight:600;color:#27ae60;">后剪枝</div>
+        <div style="font-size:13px;line-height:1.8;margin-top:4px;">
+          先完整生长再修剪不必要分支<br>
+          效果较好但计算量较大<br>
+          实践中更常用
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px;background:#f8f9fa;border-radius:10px;padding:14px;">
+        <div style="font-weight:600;color:#8e44ad;">过拟合处理</div>
+        <div style="font-size:13px;line-height:1.8;margin-top:4px;">
+          增加数据、正则化、剪枝<br>
+          交叉验证、早停<br>
+          降低模型复杂度
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentStep = 0;
+let mode = 'pre'; // 'pre' or 'post'
+let TOTAL_STEPS_PRE = 4;
+let TOTAL_STEPS_POST = 6;
+
+function attrLabel(v) {
+  const map = {
+    '天气-晴':'晴','天气-阴':'阴','天气-雨':'雨',
+    '风力-弱':'弱','风力-强':'强',
+    '湿度-高':'高','湿度-低':'低',
+    '温度-高':'高','温度-中':'中','温度-低':'低'
+  };
+  return map[v] || v;
+}
+
+function render() {
+  const vis = document.getElementById('stepVisual');
+  const detail = document.getElementById('stepDetail');
+  const badge = document.getElementById('modeBadge');
+  const total = mode === 'pre' ? TOTAL_STEPS_PRE : TOTAL_STEPS_POST;
+
+  badge.textContent = mode === 'pre' ? '预剪枝' : '后剪枝';
+  badge.style.background = mode === 'pre' ? '#f1c40f' : '#27ae60';
+  badge.style.color = mode === 'pre' ? '#7d6608' : '#fff';
+
+  document.getElementById('btnPrev').disabled = currentStep === 0;
+  document.getElementById('btnNext').disabled = currentStep >= total - 1;
+
+  function nodeBox(label, type, extra = '') {
+    const cls = type === 'int' ? 'internal' : type === 'y' ? 'leaf-y' : type === 'n' ? 'leaf-n' : type === 'stopped' ? 'stopped' : type === 'pruned' ? 'pruned' : 'internal';
+    return `<div class="box ${cls}">${label}${extra}</div>`;
+  }
+
+  // ========== 预剪枝 ==========
+  if (mode === 'pre') {
+    if (currentStep === 0) {
+      detail.innerHTML = `<strong>初始决策树</strong>（完整生长）：天气为根，深度 3。存在过拟合倾向 — 某些叶节点只覆盖了 1-2 个训练样本。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3 样本)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2 样本)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4 样本)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">高</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1 样本)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">中</div>
+                <div class="tree-node">${nodeBox('风力','int')}
+                <div class="tree-children">
+                  <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1 样本)</span>')}</div></div>
+                  <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(1 样本)</span>')}</div></div>
+                </div></div>
+              </div>
+              <div class="tree-branch"><div class="tree-edge">低</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1 样本)</span>')}</div></div>
+            </div></div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 1) {
+      detail.innerHTML = `<strong>预剪枝策略 1：限制树深度</strong>。设定最大深度 max_depth=2，<span class="hl">禁止第 3 层生长</span>。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3样本)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2样本)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4样本)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度','stopped','<span class="sub">✂️ 提前停止</span>')}
+            <div style="font-size:11px;color:#e67e22;margin-top:2px;">深度已达上限，不再划分</div>
+            </div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 2) {
+      detail.innerHTML = `<strong>预剪枝策略 2：最小样本数限制</strong>。设定 min_samples_leaf=3，<span class="hl">禁止叶节点样本数 &lt; 3 的划分</span>。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3样本)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','y','<span class="sub">⚠ 仅2样本→停</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4样本)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度','stopped','<span class="sub">✂️ 子集不足3样本</span>')}
+            <div style="font-size:11px;color:#e67e22;margin-top:2px;">雨→温度→低/中/高 均 < 3 样本</div>
+            </div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 3) {
+      detail.innerHTML = `<strong>预剪枝结果</strong>：经过深度限制 + 最小样本数限制，决策树被简化。<span class="hl-g">训练速度更快</span>，但可能<span class="hl">错过有价值的细分规则</span>。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力?','stopped','<span class="sub">✂️ 剪枝</span>')}
+            <div style="font-size:11px;color:#e67e22;margin-top:2px;">多数决：打球:是 (3是/2否)</div>
+            </div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4样本)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度?','stopped','<span class="sub">✂️ 剪枝</span>')}
+            <div style="font-size:11px;color:#e67e22;margin-top:2px;">多数决：打球:是 (3是/2否)</div>
+            </div>
+          </div>
+        </div></div>
+      </div></div>`;
+    }
+  }
+
+  // ========== 后剪枝 ==========
+  if (mode === 'post') {
+    if (currentStep === 0) {
+      detail.innerHTML = `<strong>第 1 步：</strong>先让树<strong>完整生长</strong>，不做任何限制。生成一棵深度 3 的完全决策树。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container" style="font-size:13px;color:#555;">
+        <div style="background:#eaf2fb;padding:8px 20px;border-radius:8px;font-weight:600;margin-bottom:6px;">🌳 完整生长的决策树</div>
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">高</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">中</div>
+                <div class="tree-node">${nodeBox('风力','int')}
+                <div class="tree-children">
+                  <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+                  <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(1)</span>')}</div></div>
+                </div></div>
+              </div>
+              <div class="tree-branch"><div class="tree-edge">低</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+            </div></div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 1) {
+      detail.innerHTML = `<strong>第 2 步：</strong><span class="hl">自底向上</span>评估。首先看最底层——"雨→中→风力"分支。该节点只有 2 个样本（各 1 个），<span class="hl">可能只是噪声</span>。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">高</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">中</div>
+                <div class="tree-node">${nodeBox('风力','int','<span class="sub">🔍 评估中</span>')}
+                <div class="tree-children">
+                  <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+                  <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(1)</span>')}</div></div>
+                </div></div>
+              </div>
+              <div class="tree-branch"><div class="tree-edge">低</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+            </div></div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 2) {
+      detail.innerHTML = `<strong>第 3 步：</strong>修剪"雨→中→风力"分支。<span class="hl-g">用多数类别替代</span>。该节点 1 是 1 否，多数为"是"，替换为叶节点"是"。修剪后验证集精度<strong>不变或提升</strong>，确认剪枝有效。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">高</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">中</div>
+                <div class="tree-node">${nodeBox('打球:是','y','<span class="sub">✂️ 已剪枝</span>')}</div>
+              </div>
+              <div class="tree-branch"><div class="tree-edge">低</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+            </div></div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 3) {
+      detail.innerHTML = `<strong>第 4 步：</strong>继续向上评估"雨→温度"分支。该节点下 3 个子节点各有 1-2 个样本，总正确率 3/5。若修剪为叶节点（3 是 / 2 否 → "是"），<span class="hl">验证集精度提升或持平</span>，决定修剪。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('温度','pruned','<span class="sub">🔍 评估中</span>')}
+            <div class="tree-children" style="opacity:0.5;">
+              <div class="tree-branch"><div class="tree-edge">高</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">中</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">✂️</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">低</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(1)</span>')}</div></div>
+            </div></div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 4) {
+      detail.innerHTML = `<strong>第 5 步：</strong>修剪"雨→温度"分支。替换为叶节点"打球:是"。<span class="hl-g">整棵树变得更简洁</span>：深度从 3 降到 2，验证集精度反而提升（减少了过拟合导致的误判）。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div>
+            <div class="tree-node">${nodeBox('打球:是','y','<span class="sub">✂️ 已修剪 (5样本)</span>')}</div>
+          </div>
+        </div></div>
+      </div></div>`;
+    } else if (currentStep === 5) {
+      detail.innerHTML = `<strong>第 6 步：</strong>继续向上评估"晴→风力"分支。该节点 2 个子节点各有 3 和 2 个样本，划分有意义（风力弱→是，强→否），<span class="hl-g">保留不剪</span>。<br><br><strong>后剪枝完成。</strong>最终树深度 2，相比原始深度 3 的树，<span class="hl">泛化能力更强</span>。`;
+      vis.innerHTML = `<div class="tree-wrap"><div class="tree-container">
+        <div style="background:#d5f5e3;padding:8px 20px;border-radius:8px;font-weight:600;margin-bottom:6px;color:#1e8449;">✅ 后剪枝最终决策树</div>
+        <div class="tree-node">${nodeBox('天气','int')}
+        <div class="tree-children">
+          <div class="tree-branch"><div class="tree-edge">晴</div>
+            <div class="tree-node">${nodeBox('风力','int')}
+            <div class="tree-children">
+              <div class="tree-branch"><div class="tree-edge">弱</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(3)</span>')}</div></div>
+              <div class="tree-branch"><div class="tree-edge">强</div><div class="tree-node">${nodeBox('打球:否','n','<span class="sub">(2)</span>')}</div></div>
+            </div></div>
+          </div>
+          <div class="tree-branch"><div class="tree-edge">阴</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(4)</span>')}</div></div>
+          <div class="tree-branch"><div class="tree-edge">雨</div><div class="tree-node">${nodeBox('打球:是','y','<span class="sub">(5)</span>')}</div></div>
+        </div></div>
+      </div></div>`;
+    }
+  }
+}
+
+// 切换模式
+document.getElementById('modePre').addEventListener('click', function() {
+  mode = 'pre';
+  currentStep = 0;
+  render();
+});
+document.getElementById('modePost').addEventListener('click', function() {
+  mode = 'post';
+  currentStep = 0;
+  render();
+});
+
+document.getElementById('btnNext').addEventListener('click', function() {
+  const total = mode === 'pre' ? TOTAL_STEPS_PRE : TOTAL_STEPS_POST;
+  if (currentStep < total - 1) { currentStep++; render(); }
+});
+document.getElementById('btnPrev').addEventListener('click', function() {
+  if (currentStep > 0) { currentStep--; render(); }
+});
+document.getElementById('btnReset').addEventListener('click', function() {
+  currentStep = 0;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
